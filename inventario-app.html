@@ -1,0 +1,1559 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>InventaTech Pro</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --bg: #0d0f14;
+    --surface: #161920;
+    --surface2: #1e2230;
+    --surface3: #252a3a;
+    --accent: #00e5a0;
+    --accent2: #0099ff;
+    --accent3: #ff6b35;
+    --text: #e8eaf2;
+    --text2: #8890a8;
+    --border: #2a3048;
+    --danger: #ff4757;
+    --warning: #ffa502;
+    --success: #2ed573;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+  }
+
+  /* HEADER */
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .header-logo {
+    font-family: 'Syne', sans-serif;
+    font-size: 18px;
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: -0.5px;
+  }
+  .header-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    background: var(--surface3);
+    color: var(--accent);
+    padding: 2px 8px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+  }
+  .header-actions { margin-left: auto; display: flex; gap: 8px; }
+  .btn-icon {
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    width: 36px; height: 36px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    transition: all 0.2s;
+  }
+  .btn-icon:active { transform: scale(0.92); background: var(--surface2); }
+
+  /* NAV TABS */
+  .nav-tabs {
+    display: flex;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .nav-tabs::-webkit-scrollbar { display: none; }
+  .tab {
+    flex: 1;
+    min-width: 64px;
+    padding: 10px 4px 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    color: var(--text2);
+    font-size: 10px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .tab .tab-icon { font-size: 18px; }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab:active { background: var(--surface2); }
+
+  /* MAIN CONTENT */
+  .main {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+  .screen { display: none; padding: 16px; min-height: 100%; }
+  .screen.active { display: block; }
+
+  /* CARDS */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  .card-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-title::before {
+    content: '';
+    width: 3px; height: 14px;
+    background: var(--accent);
+    border-radius: 2px;
+  }
+
+  /* BUTTONS */
+  .btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    border: none;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s;
+    width: 100%;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary { background: var(--accent); color: #000; }
+  .btn-secondary { background: var(--surface3); color: var(--text); border: 1px solid var(--border); }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-outline { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+  .btn-sm { padding: 8px 12px; font-size: 12px; width: auto; }
+
+  /* INPUTS */
+  .input-group { margin-bottom: 12px; }
+  .input-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text2);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .input:focus { border-color: var(--accent); }
+  select.input { appearance: none; cursor: pointer; }
+
+  /* TREE / FOLDER */
+  .tree-node {
+    margin-bottom: 6px;
+  }
+  .tree-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .tree-item:active { background: var(--surface3); }
+  .tree-item.selected { border-color: var(--accent); background: rgba(0,229,160,0.06); }
+  .tree-item-icon { font-size: 18px; flex-shrink: 0; }
+  .tree-item-name { flex: 1; font-size: 14px; font-weight: 500; }
+  .tree-item-count {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--text2);
+    background: var(--surface3);
+    padding: 2px 7px;
+    border-radius: 20px;
+  }
+  .tree-children { padding-left: 16px; margin-top: 6px; border-left: 1px solid var(--border); margin-left: 20px; }
+  .tree-actions { display: flex; gap: 6px; margin-top: 6px; }
+
+  /* PHOTO GRID */
+  .photo-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    margin-top: 10px;
+  }
+  .photo-thumb {
+    aspect-ratio: 1;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    position: relative;
+    cursor: pointer;
+  }
+  .photo-thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .photo-thumb .photo-del {
+    position: absolute;
+    top: 3px; right: 3px;
+    background: rgba(0,0,0,0.7);
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    width: 20px; height: 20px;
+    font-size: 11px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .photo-add {
+    aspect-ratio: 1;
+    border-radius: var(--radius-sm);
+    background: var(--surface3);
+    border: 2px dashed var(--border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    gap: 4px;
+    color: var(--text2);
+    font-size: 11px;
+    transition: all 0.2s;
+  }
+  .photo-add:active { border-color: var(--accent); color: var(--accent); }
+  .photo-add span { font-size: 24px; }
+
+  /* STATS */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .stat-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px 8px;
+    text-align: center;
+  }
+  .stat-num {
+    font-family: 'DM Mono', monospace;
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--accent);
+  }
+  .stat-lbl { font-size: 10px; color: var(--text2); margin-top: 2px; }
+
+  /* EQUIPO ITEM */
+  .equipo-item {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+    margin-bottom: 8px;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  .equipo-thumb {
+    width: 48px; height: 48px;
+    border-radius: 6px;
+    object-fit: cover;
+    background: var(--surface3);
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    border: 1px solid var(--border);
+  }
+  .equipo-info { flex: 1; min-width: 0; }
+  .equipo-tipo { font-size: 11px; color: var(--accent); font-weight: 600; text-transform: uppercase; }
+  .equipo-nombre { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .equipo-sub { font-size: 11px; color: var(--text2); margin-top: 2px; }
+  .equipo-estado {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 20px;
+    font-weight: 600;
+  }
+  .estado-bueno { background: rgba(46,213,115,0.15); color: var(--success); }
+  .estado-regular { background: rgba(255,165,2,0.15); color: var(--warning); }
+  .estado-malo { background: rgba(255,71,87,0.15); color: var(--danger); }
+
+  /* DIFF TABLE */
+  .diff-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .diff-table th {
+    background: var(--surface3);
+    color: var(--text2);
+    padding: 8px 10px;
+    text-align: left;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .diff-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  .diff-add { background: rgba(46,213,115,0.08); }
+  .diff-remove { background: rgba(255,71,87,0.08); }
+  .diff-change { background: rgba(255,165,2,0.08); }
+  .diff-badge {
+    display: inline-block;
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-weight: 600;
+  }
+  .diff-badge.add { background: rgba(46,213,115,0.2); color: var(--success); }
+  .diff-badge.remove { background: rgba(255,71,87,0.2); color: var(--danger); }
+  .diff-badge.change { background: rgba(255,165,2,0.2); color: var(--warning); }
+
+  /* MODAL */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    z-index: 1000;
+    align-items: flex-end;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px 20px 0 0;
+    padding: 20px 16px;
+    width: 100%;
+    max-height: 90dvh;
+    overflow-y: auto;
+    animation: slideUp 0.3s ease;
+  }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  .modal-handle {
+    width: 36px; height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin: 0 auto 16px;
+  }
+  .modal-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 17px;
+    font-weight: 700;
+    margin-bottom: 16px;
+  }
+
+  /* TOAST */
+  .toast {
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 10px 18px;
+    font-size: 13px;
+    color: var(--text);
+    z-index: 2000;
+    display: none;
+    white-space: nowrap;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  }
+  .toast.show { display: block; animation: toastIn 0.2s ease; }
+  @keyframes toastIn { from { opacity: 0; transform: translateX(-50%) translateY(10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+
+  /* UPLOAD ZONE */
+  .upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    text-align: center;
+    cursor: pointer;
+    color: var(--text2);
+    transition: all 0.2s;
+    background: var(--surface2);
+  }
+  .upload-zone:active { border-color: var(--accent); color: var(--accent); }
+  .upload-zone .upload-icon { font-size: 32px; margin-bottom: 8px; }
+  .upload-zone p { font-size: 13px; }
+
+  /* BREADCRUMB */
+  .breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text2);
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .breadcrumb span { color: var(--accent); }
+  .breadcrumb-sep { color: var(--border); }
+
+  .empty-state {
+    text-align: center;
+    padding: 40px 16px;
+    color: var(--text2);
+  }
+  .empty-state .empty-icon { font-size: 48px; margin-bottom: 12px; }
+  .empty-state p { font-size: 13px; line-height: 1.5; }
+
+  .section-btn-row { display: flex; gap: 8px; margin-bottom: 12px; }
+  .section-btn-row .btn { flex: 1; }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 11px;
+    color: var(--text2);
+  }
+  input[type="file"] { display: none; }
+  .divider { height: 1px; background: var(--border); margin: 14px 0; }
+
+  .path-display {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--text2);
+    background: var(--surface2);
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    margin-bottom: 12px;
+    word-break: break-all;
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-logo">InventaTech</div>
+  <div class="header-badge">v1.0</div>
+  <div class="header-actions">
+    <button class="btn-icon" onclick="showStats()" title="Estadísticas">📊</button>
+    <button class="btn-icon" onclick="exportAllData()" title="Exportar todo">💾</button>
+  </div>
+</div>
+
+<!-- NAV -->
+<div class="nav-tabs">
+  <div class="tab active" onclick="switchTab('carpetas')" id="tab-carpetas">
+    <span class="tab-icon">📁</span>Estructura
+  </div>
+  <div class="tab" onclick="switchTab('fotos')" id="tab-fotos">
+    <span class="tab-icon">📷</span>Fotos
+  </div>
+  <div class="tab" onclick="switchTab('equipos')" id="tab-equipos">
+    <span class="tab-icon">🖥️</span>Equipos
+  </div>
+  <div class="tab" onclick="switchTab('excel')" id="tab-excel">
+    <span class="tab-icon">📊</span>Excel
+  </div>
+  <div class="tab" onclick="switchTab('comparar')" id="tab-comparar">
+    <span class="tab-icon">🔍</span>Comparar
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- ===== CARPETAS ===== -->
+  <div class="screen active" id="screen-carpetas">
+    <div class="card">
+      <div class="card-title">Estructura de carpetas</div>
+      <div id="breadcrumb-nav" class="breadcrumb" style="display:none"></div>
+      <div id="tree-root"></div>
+      <div style="margin-top:12px">
+        <button class="btn btn-primary" onclick="openNewFolderModal()">➕ Nueva carpeta / nivel</button>
+      </div>
+    </div>
+
+    <div class="card" id="current-folder-card" style="display:none">
+      <div class="card-title" id="current-folder-title">Carpeta seleccionada</div>
+      <div id="current-folder-children"></div>
+      <div class="section-btn-row" style="margin-top:10px">
+        <button class="btn btn-secondary btn-sm" onclick="openNewFolderModal(true)">📁 Sub-carpeta</button>
+        <button class="btn btn-outline btn-sm" onclick="goToPhotos()">📷 Ir a Fotos</button>
+        <button class="btn btn-secondary btn-sm" onclick="renameSelected()">✏️ Renombrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== FOTOS ===== -->
+  <div class="screen" id="screen-fotos">
+    <div class="card">
+      <div class="card-title">Captura de fotos</div>
+      <div id="fotos-path" class="path-display">Selecciona una carpeta primero</div>
+
+      <div class="section-btn-row">
+        <button class="btn btn-primary" onclick="openCamera()">📷 Tomar foto</button>
+        <button class="btn btn-secondary" onclick="document.getElementById('galleryInput').click()">🖼️ Galería</button>
+      </div>
+      <input type="file" id="cameraInput" accept="image/*" capture="environment" onchange="handlePhotoCapture(this)">
+      <input type="file" id="galleryInput" accept="image/*" multiple onchange="handleGalleryUpload(this)">
+
+      <div id="photo-folder-selector">
+        <label class="input-label">Carpeta destino</label>
+        <select class="input" id="photo-folder-select" onchange="updatePhotoFolder()">
+          <option value="">— Seleccionar carpeta —</option>
+        </select>
+      </div>
+
+      <div id="photo-grid-container">
+        <div class="divider"></div>
+        <div class="card-title">Fotos en carpeta seleccionada</div>
+        <div id="photo-grid" class="photo-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== EQUIPOS ===== -->
+  <div class="screen" id="screen-equipos">
+    <div class="card">
+      <div class="card-title">Registro de equipos</div>
+      <button class="btn btn-primary" onclick="openEquipoModal()">➕ Registrar equipo</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Filtrar</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <select class="input" id="filter-tipo" onchange="renderEquipos()" style="flex:1;min-width:120px">
+          <option value="">Todos los tipos</option>
+          <option>PC</option><option>Laptop</option><option>Impresora</option>
+          <option>Scanner</option><option>Cámara</option><option>Monitor</option><option>Otro</option>
+        </select>
+        <select class="input" id="filter-estado" onchange="renderEquipos()" style="flex:1;min-width:120px">
+          <option value="">Todos los estados</option>
+          <option>Bueno</option><option>Regular</option><option>Malo</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="equipos-list"></div>
+  </div>
+
+  <!-- ===== EXCEL ===== -->
+  <div class="screen" id="screen-excel">
+    <div class="card">
+      <div class="card-title">Exportar inventario</div>
+      <div class="stats-grid">
+        <div class="stat-box">
+          <div class="stat-num" id="stat-total">0</div>
+          <div class="stat-lbl">Equipos</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num" id="stat-carpetas">0</div>
+          <div class="stat-lbl">Carpetas</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num" id="stat-fotos">0</div>
+          <div class="stat-lbl">Fotos</div>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="exportExcel()">⬇️ Descargar Excel</button>
+      <div style="margin-top:8px">
+        <button class="btn btn-secondary" onclick="exportJSON()">💾 Guardar respaldo JSON</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Importar respaldo</div>
+      <div class="upload-zone" onclick="document.getElementById('jsonInput').click()">
+        <div class="upload-icon">📂</div>
+        <p>Toca para cargar un respaldo JSON guardado anteriormente</p>
+      </div>
+      <input type="file" id="jsonInput" accept=".json" onchange="importJSON(this)">
+    </div>
+
+    <div class="card">
+      <div class="card-title">Links de Drive</div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:12px">Pega aquí los links de Google Drive para asociarlos con las carpetas</p>
+      <div id="drive-links-list"></div>
+      <button class="btn btn-secondary" style="margin-top:10px" onclick="openDriveLinkModal()">🔗 Agregar link Drive</button>
+    </div>
+  </div>
+
+  <!-- ===== COMPARAR ===== -->
+  <div class="screen" id="screen-comparar">
+    <div class="card">
+      <div class="card-title">Comparar inventarios Excel</div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:14px">Sube dos archivos Excel para ver las diferencias entre inventarios</p>
+
+      <div style="margin-bottom:10px">
+        <label class="input-label">Archivo A (tu inventario / referencia)</label>
+        <div class="upload-zone" onclick="document.getElementById('excelA').click()" id="zone-a">
+          <div class="upload-icon">📗</div>
+          <p id="label-a">Subir Excel A</p>
+        </div>
+        <input type="file" id="excelA" accept=".xlsx,.xls,.csv" onchange="loadExcelA(this)">
+      </div>
+
+      <div style="margin-bottom:14px">
+        <label class="input-label">Archivo B (otro inventario a comparar)</label>
+        <div class="upload-zone" onclick="document.getElementById('excelB').click()" id="zone-b">
+          <div class="upload-icon">📘</div>
+          <p id="label-b">Subir Excel B</p>
+        </div>
+        <input type="file" id="excelB" accept=".xlsx,.xls,.csv" onchange="loadExcelB(this)">
+      </div>
+
+      <div class="input-group">
+        <label class="input-label">Columna clave para comparar (ej: Número de serie)</label>
+        <select class="input" id="compare-key">
+          <option value="Serie">Número de serie</option>
+          <option value="Activo">Número de activo</option>
+          <option value="Marca/Modelo">Marca/Modelo</option>
+        </select>
+      </div>
+
+      <button class="btn btn-primary" onclick="compareExcels()">🔍 Comparar ahora</button>
+    </div>
+
+    <div id="compare-results"></div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- MODAL: Nueva carpeta -->
+<div class="modal-overlay" id="modal-folder">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">📁 Nueva carpeta</div>
+    <div class="input-group">
+      <label class="input-label">Nombre</label>
+      <input class="input" id="folder-name-input" placeholder="ej: Edificio A, Oficina Contabilidad..." type="text">
+    </div>
+    <div class="input-group">
+      <label class="input-label">Ícono</label>
+      <div id="icon-picker" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px">
+        <span class="icon-opt" onclick="selectIcon('🏢')" style="font-size:24px;cursor:pointer;padding:6px;border-radius:8px;background:var(--surface2);border:1px solid var(--border)">🏢</span>
+        <span class="icon-opt" onclick="selectIcon('🏠')" style="font-size:24px;cursor:pointer;padding:6px;border-radius:8px;background:var(--surface2);border:1px solid var(--border)">🏠</span>
+        <span class="icon-opt" onclick="selectIcon('📁')" style="font-size:24px;cursor:pointer;padding:6px;border-radius:8px;background:var(--surface2);border:1px solid var(--border)">📁</span>
+        <span class="icon-opt" onclick="selectIcon('👤')" style="font-size:24px;cursor:pointer;padding:6px;border-radius:8px;background:var(--surface2);border:1px solid var(--border)">👤</span>
+        <span class="icon-opt" onclick="selectIcon('🖥️')" style="font-size:24px;cursor:pointer;padding:6px;border-radius:8px;background:var(--surface2);border:1px solid var(--border)">🖥️</span>
+        <span class="icon-opt" onclick="selectIcon('🏬')" style="font-size:24px;cursor:pointer;padding:6px;border-radius:8px;background:var(--surface2);border:1px solid var(--border)">🏬</span>
+        <span class="icon-opt" onclick="selectIcon('🗄️')" style="font-size:24px;cursor:pointer;padding:6px;border-radius:8px;background:var(--surface2);border:1px solid var(--border)">🗄️</span>
+        <span class="icon-opt" onclick="selectIcon('🚪')" style="font-size:24px;cursor:pointer;padding:6px;border-radius:8px;background:var(--surface2);border:1px solid var(--border)">🚪</span>
+      </div>
+    </div>
+    <input type="hidden" id="selected-icon" value="📁">
+    <div class="section-btn-row" style="margin-top:16px">
+      <button class="btn btn-primary" onclick="createFolder()">Crear</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-folder')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Registrar equipo -->
+<div class="modal-overlay" id="modal-equipo">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">🖥️ Registrar equipo</div>
+    <input type="hidden" id="equipo-edit-id" value="">
+
+    <div class="input-group">
+      <label class="input-label">Tipo de equipo</label>
+      <select class="input" id="eq-tipo">
+        <option>PC</option><option>Laptop</option><option>Impresora</option>
+        <option>Scanner</option><option>Cámara</option><option>Monitor</option><option>Otro</option>
+      </select>
+    </div>
+    <div class="input-group">
+      <label class="input-label">Marca y Modelo</label>
+      <input class="input" id="eq-marca" placeholder="ej: HP EliteBook 840 G8" type="text">
+    </div>
+    <div class="input-group">
+      <label class="input-label">Número de serie</label>
+      <input class="input" id="eq-serie" placeholder="ej: 5CG1234567" type="text">
+    </div>
+    <div class="input-group">
+      <label class="input-label">Número de activo / inventario</label>
+      <input class="input" id="eq-activo" placeholder="ej: ACT-2024-001" type="text">
+    </div>
+    <div class="input-group">
+      <label class="input-label">Asignado a (nombre / puesto)</label>
+      <input class="input" id="eq-persona" placeholder="ej: Juan Pérez – Contador" type="text">
+    </div>
+    <div class="input-group">
+      <label class="input-label">Estado</label>
+      <select class="input" id="eq-estado">
+        <option>Bueno</option><option>Regular</option><option>Malo</option>
+      </select>
+    </div>
+    <div class="input-group">
+      <label class="input-label">Carpeta (ubicación)</label>
+      <select class="input" id="eq-carpeta">
+        <option value="">— Sin asignar —</option>
+      </select>
+    </div>
+    <div class="input-group">
+      <label class="input-label">Link foto Drive (opcional)</label>
+      <input class="input" id="eq-drive" placeholder="https://drive.google.com/..." type="url">
+    </div>
+    <div class="input-group">
+      <label class="input-label">Notas adicionales</label>
+      <input class="input" id="eq-notas" placeholder="Observaciones..." type="text">
+    </div>
+
+    <div class="section-btn-row" style="margin-top:16px">
+      <button class="btn btn-primary" onclick="saveEquipo()">💾 Guardar</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-equipo')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Drive link -->
+<div class="modal-overlay" id="modal-drive">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">🔗 Link de Google Drive</div>
+    <div class="input-group">
+      <label class="input-label">Carpeta</label>
+      <select class="input" id="drive-folder-select"></select>
+    </div>
+    <div class="input-group">
+      <label class="input-label">Link de Drive</label>
+      <input class="input" id="drive-link-input" placeholder="https://drive.google.com/drive/folders/..." type="url">
+    </div>
+    <div class="section-btn-row" style="margin-top:16px">
+      <button class="btn btn-primary" onclick="saveDriveLink()">Guardar</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-drive')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Ver foto -->
+<div class="modal-overlay" id="modal-photo" onclick="closeModal('modal-photo')" style="align-items:center;justify-content:center">
+  <div style="max-width:95vw;max-height:90dvh;border-radius:12px;overflow:hidden">
+    <img id="modal-photo-img" src="" style="max-width:95vw;max-height:90dvh;object-fit:contain">
+  </div>
+</div>
+
+<script>
+// ========== STATE ==========
+let state = {
+  folders: [],      // { id, name, icon, parentId, driveLink }
+  photos: [],       // { id, folderId, dataUrl, name, timestamp }
+  equipos: [],      // { id, tipo, marca, serie, activo, persona, estado, carpetaId, driveLink, notas }
+  driveLinks: {},   // folderId -> url
+  selectedFolderId: null,
+  photoTargetFolderId: null,
+  addingSubfolder: false,
+  excelA: null,
+  excelB: null,
+};
+
+const STORAGE_KEY = 'inventatech_v1';
+
+function loadState() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      state = { ...state, ...parsed };
+      // photos with dataUrl might be large; store separately
+    }
+  } catch(e) {}
+}
+
+function saveState() {
+  try {
+    const toSave = {
+      folders: state.folders,
+      photos: state.photos,
+      equipos: state.equipos,
+      driveLinks: state.driveLinks,
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+  } catch(e) {
+    toast('⚠️ Almacenamiento lleno, exporta tu respaldo');
+  }
+}
+
+// ========== TABS ==========
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.getElementById('screen-' + name).classList.add('active');
+  if (name === 'fotos') renderPhotoFolderSelect();
+  if (name === 'equipos') renderEquipos();
+  if (name === 'excel') updateStats();
+}
+
+// ========== TOAST ==========
+function toast(msg, duration = 2200) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), duration);
+}
+
+// ========== MODAL ==========
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// ========== FOLDER TREE ==========
+function generateId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+
+function openNewFolderModal(asSub = false) {
+  state.addingSubfolder = asSub;
+  document.getElementById('folder-name-input').value = '';
+  document.getElementById('selected-icon').value = '📁';
+  openModal('modal-folder');
+  setTimeout(() => document.getElementById('folder-name-input').focus(), 300);
+}
+
+function selectIcon(icon) {
+  document.getElementById('selected-icon').value = icon;
+  document.querySelectorAll('.icon-opt').forEach(el => {
+    el.style.background = el.textContent === icon ? 'rgba(0,229,160,0.15)' : 'var(--surface2)';
+    el.style.borderColor = el.textContent === icon ? 'var(--accent)' : 'var(--border)';
+  });
+}
+
+function createFolder() {
+  const name = document.getElementById('folder-name-input').value.trim();
+  const icon = document.getElementById('selected-icon').value;
+  if (!name) { toast('⚠️ Escribe un nombre'); return; }
+
+  const parentId = state.addingSubfolder ? state.selectedFolderId : null;
+  const folder = { id: generateId(), name, icon, parentId };
+  state.folders.push(folder);
+  saveState();
+  closeModal('modal-folder');
+  renderTree();
+  toast('✅ Carpeta creada: ' + name);
+}
+
+function renderTree() {
+  const root = document.getElementById('tree-root');
+  const rootFolders = state.folders.filter(f => !f.parentId);
+  root.innerHTML = rootFolders.length ? '' : '<div class="empty-state"><div class="empty-icon">📁</div><p>Crea tu primera carpeta<br>para organizar el inventario</p></div>';
+  rootFolders.forEach(f => root.appendChild(renderNode(f)));
+  // update breadcrumb
+  updateBreadcrumb();
+  // update current folder card
+  updateCurrentFolderCard();
+}
+
+function renderNode(folder) {
+  const children = state.folders.filter(f => f.parentId === folder.id);
+  const photoCount = state.photos.filter(p => p.folderId === folder.id).length;
+  const equipCount = state.equipos.filter(e => e.carpetaId === folder.id).length;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'tree-node';
+
+  const item = document.createElement('div');
+  item.className = 'tree-item' + (state.selectedFolderId === folder.id ? ' selected' : '');
+  item.innerHTML = `
+    <span class="tree-item-icon">${folder.icon}</span>
+    <span class="tree-item-name">${folder.name}</span>
+    ${photoCount > 0 ? `<span class="chip">📷 ${photoCount}</span>` : ''}
+    ${equipCount > 0 ? `<span class="chip">🖥️ ${equipCount}</span>` : ''}
+    ${children.length > 0 ? `<span class="tree-item-count">${children.length}</span>` : ''}
+  `;
+  item.onclick = () => selectFolder(folder.id);
+
+  const delBtn = document.createElement('button');
+  delBtn.className = 'btn-icon';
+  delBtn.style.cssText = 'width:28px;height:28px;font-size:12px;flex-shrink:0';
+  delBtn.textContent = '🗑️';
+  delBtn.onclick = (e) => { e.stopPropagation(); deleteFolder(folder.id); };
+  item.appendChild(delBtn);
+
+  wrap.appendChild(item);
+
+  if (children.length > 0) {
+    const childrenWrap = document.createElement('div');
+    childrenWrap.className = 'tree-children';
+    children.forEach(c => childrenWrap.appendChild(renderNode(c)));
+    wrap.appendChild(childrenWrap);
+  }
+
+  return wrap;
+}
+
+function selectFolder(id) {
+  state.selectedFolderId = id;
+  renderTree();
+}
+
+function deleteFolder(id) {
+  const hasChildren = state.folders.some(f => f.parentId === id);
+  const hasPhotos = state.photos.some(p => p.folderId === id);
+  const hasEquipos = state.equipos.some(e => e.carpetaId === id);
+  if (hasChildren || hasPhotos || hasEquipos) {
+    toast('⚠️ Elimina primero el contenido de la carpeta');
+    return;
+  }
+  state.folders = state.folders.filter(f => f.id !== id);
+  if (state.selectedFolderId === id) state.selectedFolderId = null;
+  saveState();
+  renderTree();
+  toast('🗑️ Carpeta eliminada');
+}
+
+function renameSelected() {
+  if (!state.selectedFolderId) { toast('Selecciona una carpeta primero'); return; }
+  const folder = state.folders.find(f => f.id === state.selectedFolderId);
+  const newName = prompt('Nuevo nombre:', folder.name);
+  if (newName && newName.trim()) {
+    folder.name = newName.trim();
+    saveState();
+    renderTree();
+    toast('✅ Renombrado');
+  }
+}
+
+function updateBreadcrumb() {
+  const nav = document.getElementById('breadcrumb-nav');
+  if (!state.selectedFolderId) { nav.style.display = 'none'; return; }
+  nav.style.display = 'flex';
+  const path = getFolderPath(state.selectedFolderId);
+  nav.innerHTML = path.map((f, i) =>
+    `${i > 0 ? '<span class="breadcrumb-sep">›</span>' : ''}<span>${f.icon} ${f.name}</span>`
+  ).join('');
+}
+
+function getFolderPath(id) {
+  const path = [];
+  let current = state.folders.find(f => f.id === id);
+  while (current) {
+    path.unshift(current);
+    current = current.parentId ? state.folders.find(f => f.id === current.parentId) : null;
+  }
+  return path;
+}
+
+function updateCurrentFolderCard() {
+  const card = document.getElementById('current-folder-card');
+  if (!state.selectedFolderId) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+  const folder = state.folders.find(f => f.id === state.selectedFolderId);
+  document.getElementById('current-folder-title').textContent = folder.icon + ' ' + folder.name;
+  const children = state.folders.filter(f => f.parentId === state.selectedFolderId);
+  const cont = document.getElementById('current-folder-children');
+  if (children.length === 0) {
+    cont.innerHTML = '<p style="font-size:12px;color:var(--text2)">Sin subcarpetas. Agrega fotos o equipos aquí.</p>';
+  } else {
+    cont.innerHTML = children.map(c => `<div class="chip" style="margin:3px">${c.icon} ${c.name}</div>`).join('');
+  }
+}
+
+function goToPhotos() {
+  if (!state.selectedFolderId) { toast('Selecciona una carpeta primero'); return; }
+  state.photoTargetFolderId = state.selectedFolderId;
+  switchTab('fotos');
+  document.getElementById('photo-folder-select').value = state.photoTargetFolderId;
+  renderPhotoGrid();
+}
+
+// ========== PHOTOS ==========
+function renderPhotoFolderSelect() {
+  const sel = document.getElementById('photo-folder-select');
+  const allFolders = getAllFolderOptions();
+  sel.innerHTML = '<option value="">— Seleccionar carpeta —</option>' +
+    allFolders.map(f => `<option value="${f.id}" ${f.id === state.photoTargetFolderId ? 'selected' : ''}>${f.label}</option>`).join('');
+  updatePhotoFolder();
+}
+
+function getAllFolderOptions(folders = null, parentId = null, depth = 0) {
+  if (!folders) folders = state.folders;
+  return folders
+    .filter(f => f.parentId === parentId)
+    .flatMap(f => [
+      { id: f.id, label: ('　'.repeat(depth)) + f.icon + ' ' + f.name },
+      ...getAllFolderOptions(folders, f.id, depth + 1)
+    ]);
+}
+
+function updatePhotoFolder() {
+  const sel = document.getElementById('photo-folder-select');
+  state.photoTargetFolderId = sel.value || null;
+  const pathEl = document.getElementById('fotos-path');
+  if (state.photoTargetFolderId) {
+    const path = getFolderPath(state.photoTargetFolderId);
+    pathEl.textContent = '📍 ' + path.map(f => f.name).join(' › ');
+  } else {
+    pathEl.textContent = 'Selecciona una carpeta primero';
+  }
+  renderPhotoGrid();
+}
+
+function openCamera() {
+  if (!state.photoTargetFolderId) { toast('⚠️ Selecciona una carpeta primero'); return; }
+  document.getElementById('cameraInput').click();
+}
+
+function handlePhotoCapture(input) {
+  if (!input.files.length) return;
+  const file = input.files[0];
+  processPhotoFile(file);
+  input.value = '';
+}
+
+function handleGalleryUpload(input) {
+  if (!state.photoTargetFolderId) { toast('⚠️ Selecciona una carpeta primero'); return; }
+  Array.from(input.files).forEach(file => processPhotoFile(file));
+  input.value = '';
+}
+
+function processPhotoFile(file) {
+  if (!state.photoTargetFolderId) { toast('⚠️ Selecciona una carpeta primero'); return; }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    // Compress image
+    compressImage(e.target.result, (compressed) => {
+      const photo = {
+        id: generateId(),
+        folderId: state.photoTargetFolderId,
+        dataUrl: compressed,
+        name: file.name || 'foto_' + Date.now(),
+        timestamp: new Date().toISOString(),
+      };
+      state.photos.push(photo);
+      saveState();
+      renderPhotoGrid();
+      renderTree();
+      toast('📷 Foto guardada');
+    });
+  };
+  reader.readAsDataURL(file);
+}
+
+function compressImage(dataUrl, callback, quality = 0.65, maxW = 1200) {
+  const img = new Image();
+  img.onload = () => {
+    const canvas = document.createElement('canvas');
+    let w = img.width, h = img.height;
+    if (w > maxW) { h = Math.round(h * maxW / w); w = maxW; }
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    callback(canvas.toDataURL('image/jpeg', quality));
+  };
+  img.src = dataUrl;
+}
+
+function renderPhotoGrid() {
+  const grid = document.getElementById('photo-grid');
+  const folderId = state.photoTargetFolderId;
+  const photos = folderId ? state.photos.filter(p => p.folderId === folderId) : [];
+
+  grid.innerHTML = '';
+  photos.forEach(p => {
+    const thumb = document.createElement('div');
+    thumb.className = 'photo-thumb';
+    thumb.innerHTML = `<img src="${p.dataUrl}" onclick="viewPhoto('${p.id}')">
+      <button class="photo-del" onclick="deletePhoto('${p.id}')">✕</button>`;
+    grid.appendChild(thumb);
+  });
+
+  const addBtn = document.createElement('div');
+  addBtn.className = 'photo-add';
+  addBtn.innerHTML = '<span>📷</span><span>Agregar</span>';
+  addBtn.onclick = openCamera;
+  grid.appendChild(addBtn);
+}
+
+function viewPhoto(id) {
+  const p = state.photos.find(x => x.id === id);
+  if (!p) return;
+  document.getElementById('modal-photo-img').src = p.dataUrl;
+  openModal('modal-photo');
+}
+
+function deletePhoto(id) {
+  state.photos = state.photos.filter(p => p.id !== id);
+  saveState();
+  renderPhotoGrid();
+  renderTree();
+  toast('🗑️ Foto eliminada');
+}
+
+// ========== EQUIPOS ==========
+function populateFolderSelects() {
+  const opts = '<option value="">— Sin asignar —</option>' +
+    getAllFolderOptions().map(f => `<option value="${f.id}">${f.label}</option>`).join('');
+  document.getElementById('eq-carpeta').innerHTML = opts;
+  document.getElementById('drive-folder-select').innerHTML = opts;
+}
+
+function openEquipoModal(id = null) {
+  populateFolderSelects();
+  document.getElementById('equipo-edit-id').value = '';
+  document.getElementById('eq-tipo').value = 'PC';
+  document.getElementById('eq-marca').value = '';
+  document.getElementById('eq-serie').value = '';
+  document.getElementById('eq-activo').value = '';
+  document.getElementById('eq-persona').value = '';
+  document.getElementById('eq-estado').value = 'Bueno';
+  document.getElementById('eq-carpeta').value = state.selectedFolderId || '';
+  document.getElementById('eq-drive').value = '';
+  document.getElementById('eq-notas').value = '';
+
+  if (id) {
+    const eq = state.equipos.find(e => e.id === id);
+    if (eq) {
+      document.getElementById('equipo-edit-id').value = eq.id;
+      document.getElementById('eq-tipo').value = eq.tipo;
+      document.getElementById('eq-marca').value = eq.marca;
+      document.getElementById('eq-serie').value = eq.serie;
+      document.getElementById('eq-activo').value = eq.activo;
+      document.getElementById('eq-persona').value = eq.persona;
+      document.getElementById('eq-estado').value = eq.estado;
+      document.getElementById('eq-carpeta').value = eq.carpetaId || '';
+      document.getElementById('eq-drive').value = eq.driveLink || '';
+      document.getElementById('eq-notas').value = eq.notas || '';
+    }
+  }
+  openModal('modal-equipo');
+}
+
+function saveEquipo() {
+  const editId = document.getElementById('equipo-edit-id').value;
+  const eq = {
+    id: editId || generateId(),
+    tipo: document.getElementById('eq-tipo').value,
+    marca: document.getElementById('eq-marca').value.trim(),
+    serie: document.getElementById('eq-serie').value.trim(),
+    activo: document.getElementById('eq-activo').value.trim(),
+    persona: document.getElementById('eq-persona').value.trim(),
+    estado: document.getElementById('eq-estado').value,
+    carpetaId: document.getElementById('eq-carpeta').value || null,
+    driveLink: document.getElementById('eq-drive').value.trim(),
+    notas: document.getElementById('eq-notas').value.trim(),
+    fecha: new Date().toLocaleDateString('es-MX'),
+  };
+
+  if (!eq.marca && !eq.serie) { toast('⚠️ Ingresa al menos marca o serie'); return; }
+
+  if (editId) {
+    const idx = state.equipos.findIndex(e => e.id === editId);
+    state.equipos[idx] = eq;
+  } else {
+    state.equipos.push(eq);
+  }
+  saveState();
+  closeModal('modal-equipo');
+  renderEquipos();
+  renderTree();
+  toast('✅ Equipo guardado');
+}
+
+const TIPO_ICONS = { PC:'🖥️', Laptop:'💻', Impresora:'🖨️', Scanner:'🗂️', Cámara:'📷', Monitor:'🖵', Otro:'📦' };
+
+function renderEquipos() {
+  const list = document.getElementById('equipos-list');
+  const filterTipo = document.getElementById('filter-tipo').value;
+  const filterEstado = document.getElementById('filter-estado').value;
+
+  let equipos = state.equipos;
+  if (filterTipo) equipos = equipos.filter(e => e.tipo === filterTipo);
+  if (filterEstado) equipos = equipos.filter(e => e.estado === filterEstado);
+
+  if (equipos.length === 0) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-icon">🖥️</div><p>No hay equipos registrados.<br>Toca "Registrar equipo" para comenzar.</p></div>';
+    return;
+  }
+
+  list.innerHTML = equipos.map(eq => {
+    const icon = TIPO_ICONS[eq.tipo] || '📦';
+    const estadoClass = eq.estado === 'Bueno' ? 'estado-bueno' : eq.estado === 'Regular' ? 'estado-regular' : 'estado-malo';
+    const folder = eq.carpetaId ? state.folders.find(f => f.id === eq.carpetaId) : null;
+    return `
+      <div class="equipo-item">
+        <div class="equipo-thumb">${icon}</div>
+        <div class="equipo-info">
+          <div class="equipo-tipo">${eq.tipo}</div>
+          <div class="equipo-nombre">${eq.marca || 'Sin marca'}</div>
+          <div class="equipo-sub">Serie: ${eq.serie || '—'} · Activo: ${eq.activo || '—'}</div>
+          <div class="equipo-sub" style="margin-top:2px">👤 ${eq.persona || 'Sin asignar'}</div>
+          ${folder ? `<div class="equipo-sub">📁 ${folder.name}</div>` : ''}
+          ${eq.driveLink ? `<a href="${eq.driveLink}" target="_blank" style="font-size:11px;color:var(--accent2)">🔗 Ver foto Drive</a>` : ''}
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
+          <span class="equipo-estado ${estadoClass}">${eq.estado}</span>
+          <button class="btn-icon" style="width:28px;height:28px;font-size:13px" onclick="openEquipoModal('${eq.id}')">✏️</button>
+          <button class="btn-icon" style="width:28px;height:28px;font-size:13px" onclick="deleteEquipo('${eq.id}')">🗑️</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function deleteEquipo(id) {
+  state.equipos = state.equipos.filter(e => e.id !== id);
+  saveState();
+  renderEquipos();
+  toast('🗑️ Equipo eliminado');
+}
+
+// ========== STATS ==========
+function updateStats() {
+  document.getElementById('stat-total').textContent = state.equipos.length;
+  document.getElementById('stat-carpetas').textContent = state.folders.length;
+  document.getElementById('stat-fotos').textContent = state.photos.length;
+  renderDriveLinksList();
+}
+
+// ========== DRIVE LINKS ==========
+function openDriveLinkModal() {
+  populateFolderSelects();
+  document.getElementById('drive-link-input').value = '';
+  openModal('modal-drive');
+}
+
+function saveDriveLink() {
+  const folderId = document.getElementById('drive-folder-select').value;
+  const link = document.getElementById('drive-link-input').value.trim();
+  if (!link) { toast('⚠️ Ingresa el link'); return; }
+  if (folderId) state.driveLinks[folderId] = link;
+  // Also update all equipos in that folder
+  if (folderId) {
+    state.equipos.filter(e => e.carpetaId === folderId && !e.driveLink).forEach(e => e.driveLink = link);
+  }
+  saveState();
+  closeModal('modal-drive');
+  renderDriveLinksList();
+  toast('✅ Link guardado');
+}
+
+function renderDriveLinksList() {
+  const container = document.getElementById('drive-links-list');
+  const entries = Object.entries(state.driveLinks);
+  if (entries.length === 0) {
+    container.innerHTML = '<p style="font-size:12px;color:var(--text2)">Sin links agregados aún.</p>';
+    return;
+  }
+  container.innerHTML = entries.map(([folderId, link]) => {
+    const folder = state.folders.find(f => f.id === folderId);
+    const name = folder ? `${folder.icon} ${folder.name}` : 'Carpeta eliminada';
+    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:8px;background:var(--surface2);border-radius:8px;border:1px solid var(--border)">
+      <span style="font-size:13px;flex:1">${name}</span>
+      <a href="${link}" target="_blank" style="font-size:11px;color:var(--accent2)">🔗 Abrir</a>
+      <button class="btn-icon" style="width:26px;height:26px;font-size:11px" onclick="deleteDriveLink('${folderId}')">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function deleteDriveLink(folderId) {
+  delete state.driveLinks[folderId];
+  saveState();
+  renderDriveLinksList();
+}
+
+// ========== EXPORT EXCEL ==========
+function exportExcel() {
+  if (state.equipos.length === 0) { toast('⚠️ No hay equipos registrados'); return; }
+  const rows = state.equipos.map(eq => {
+    const folder = eq.carpetaId ? state.folders.find(f => f.id === eq.carpetaId) : null;
+    const path = folder ? getFolderPath(folder.id).map(f => f.name).join(' › ') : '';
+    const driveLink = eq.driveLink || (eq.carpetaId && state.driveLinks[eq.carpetaId]) || '';
+    return {
+      'Tipo': eq.tipo,
+      'Marca/Modelo': eq.marca,
+      'Serie': eq.serie,
+      'Activo': eq.activo,
+      'Asignado a': eq.persona,
+      'Estado': eq.estado,
+      'Ubicación': path,
+      'Link foto Drive': driveLink,
+      'Notas': eq.notas || '',
+      'Fecha registro': eq.fecha || '',
+    };
+  });
+
+  const ws = XLSX.utils.json_to_sheet(rows);
+  // Column widths
+  ws['!cols'] = [12,25,18,15,25,10,35,45,25,15].map(w => ({ wch: w }));
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Inventario');
+
+  // Summary sheet
+  const tipos = {};
+  state.equipos.forEach(e => tipos[e.tipo] = (tipos[e.tipo] || 0) + 1);
+  const summary = [
+    { 'Resumen': 'Total equipos', 'Cantidad': state.equipos.length },
+    ...Object.entries(tipos).map(([t, c]) => ({ 'Resumen': t, 'Cantidad': c })),
+    { 'Resumen': 'Total fotos', 'Cantidad': state.photos.length },
+    { 'Resumen': 'Carpetas', 'Cantidad': state.folders.length },
+  ];
+  const ws2 = XLSX.utils.json_to_sheet(summary);
+  XLSX.utils.book_append_sheet(wb, ws2, 'Resumen');
+
+  const date = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `inventario_${date}.xlsx`);
+  toast('✅ Excel descargado');
+}
+
+// ========== EXPORT/IMPORT JSON ==========
+function exportJSON() {
+  const data = {
+    exportDate: new Date().toISOString(),
+    folders: state.folders,
+    photos: state.photos,
+    equipos: state.equipos,
+    driveLinks: state.driveLinks,
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `inventatech_backup_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('💾 Respaldo guardado');
+}
+
+function exportAllData() {
+  exportJSON();
+}
+
+function importJSON(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (data.folders) state.folders = data.folders;
+      if (data.photos) state.photos = data.photos;
+      if (data.equipos) state.equipos = data.equipos;
+      if (data.driveLinks) state.driveLinks = data.driveLinks;
+      saveState();
+      renderTree();
+      renderEquipos();
+      updateStats();
+      toast('✅ Datos importados correctamente');
+    } catch(err) {
+      toast('❌ Archivo inválido');
+    }
+  };
+  reader.readAsText(file);
+  input.value = '';
+}
+
+// ========== COMPARE EXCELS ==========
+let dataA = null, dataB = null;
+
+function loadExcelA(input) {
+  readExcelFile(input.files[0], (data, name) => {
+    dataA = data;
+    document.getElementById('label-a').textContent = '✅ ' + name + ' (' + data.length + ' filas)';
+    document.getElementById('zone-a').style.borderColor = 'var(--success)';
+    toast('📗 Archivo A cargado: ' + data.length + ' equipos');
+  });
+  input.value = '';
+}
+
+function loadExcelB(input) {
+  readExcelFile(input.files[0], (data, name) => {
+    dataB = data;
+    document.getElementById('label-b').textContent = '✅ ' + name + ' (' + data.length + ' filas)';
+    document.getElementById('zone-b').style.borderColor = 'var(--accent2)';
+    toast('📘 Archivo B cargado: ' + data.length + ' equipos');
+  });
+  input.value = '';
+}
+
+function readExcelFile(file, callback) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const wb = XLSX.read(e.target.result, { type: 'binary' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const data = XLSX.utils.sheet_to_json(ws, { defval: '' });
+    callback(data, file.name);
+  };
+  reader.readAsBinaryString(file);
+}
+
+function compareExcels() {
+  if (!dataA || !dataB) { toast('⚠️ Sube ambos archivos primero'); return; }
+  const key = document.getElementById('compare-key').value;
+  const container = document.getElementById('compare-results');
+
+  const mapA = {}, mapB = {};
+  dataA.forEach(row => { if (row[key]) mapA[String(row[key]).trim()] = row; });
+  dataB.forEach(row => { if (row[key]) mapB[String(row[key]).trim()] = row; });
+
+  const allKeys = new Set([...Object.keys(mapA), ...Object.keys(mapB)]);
+  const added = [], removed = [], changed = [], same = [];
+
+  allKeys.forEach(k => {
+    if (!mapA[k]) { added.push({ key: k, row: mapB[k] }); }
+    else if (!mapB[k]) { removed.push({ key: k, row: mapA[k] }); }
+    else {
+      const diffs = [];
+      const cols = new Set([...Object.keys(mapA[k]), ...Object.keys(mapB[k])]);
+      cols.forEach(c => {
+        if (String(mapA[k][c]) !== String(mapB[k][c])) diffs.push({ col: c, a: mapA[k][c], b: mapB[k][c] });
+      });
+      if (diffs.length) changed.push({ key: k, diffs, rowA: mapA[k], rowB: mapB[k] });
+      else same.push(k);
+    }
+  });
+
+  container.innerHTML = `
+    <div class="card">
+      <div class="card-title">Resumen de diferencias</div>
+      <div class="stats-grid">
+        <div class="stat-box">
+          <div class="stat-num" style="color:var(--success)">${added.length}</div>
+          <div class="stat-lbl">Solo en B</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num" style="color:var(--danger)">${removed.length}</div>
+          <div class="stat-lbl">Solo en A</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num" style="color:var(--warning)">${changed.length}</div>
+          <div class="stat-lbl">Cambios</div>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--text2)">✅ ${same.length} equipos iguales en ambos archivos</div>
+    </div>
+
+    ${added.length ? `<div class="card">
+      <div class="card-title">➕ Solo en archivo B (nuevos)</div>
+      <div style="overflow-x:auto"><table class="diff-table">
+        <tr><th>${key}</th><th>Tipo</th><th>Marca/Modelo</th><th>Asignado a</th></tr>
+        ${added.map(r => `<tr class="diff-add"><td>${r.key}</td><td>${r.row['Tipo']||''}</td><td>${r.row['Marca/Modelo']||''}</td><td>${r.row['Asignado a']||''}</td></tr>`).join('')}
+      </table></div>
+    </div>` : ''}
+
+    ${removed.length ? `<div class="card">
+      <div class="card-title">➖ Solo en archivo A (faltantes en B)</div>
+      <div style="overflow-x:auto"><table class="diff-table">
+        <tr><th>${key}</th><th>Tipo</th><th>Marca/Modelo</th><th>Asignado a</th></tr>
+        ${removed.map(r => `<tr class="diff-remove"><td>${r.key}</td><td>${r.row['Tipo']||''}</td><td>${r.row['Marca/Modelo']||''}</td><td>${r.row['Asignado a']||''}</td></tr>`).join('')}
+      </table></div>
+    </div>` : ''}
+
+    ${changed.length ? `<div class="card">
+      <div class="card-title">🔄 Equipos con diferencias</div>
+      ${changed.map(c => `
+        <div style="margin-bottom:14px;padding:10px;background:var(--surface2);border-radius:8px;border:1px solid var(--border)">
+          <div style="font-size:13px;font-weight:600;margin-bottom:8px">${key}: ${c.key}</div>
+          <table class="diff-table" style="font-size:11px">
+            <tr><th>Campo</th><th>Archivo A</th><th>Archivo B</th></tr>
+            ${c.diffs.map(d => `<tr class="diff-change"><td>${d.col}</td><td>${d.a}</td><td>${d.b}</td></tr>`).join('')}
+          </table>
+        </div>
+      `).join('')}
+    </div>` : ''}
+
+    <div style="margin-top:8px">
+      <button class="btn btn-outline" onclick="exportCompareExcel(${JSON.stringify({added,removed,changed}).replace(/</g,'&lt;')})">⬇️ Exportar resultados</button>
+    </div>
+  `;
+  toast('🔍 Comparación completada');
+}
+
+function exportCompareExcel(results) {
+  // results passed as object
+  try {
+    const wb = XLSX.utils.book_new();
+    if (results.added && results.added.length) {
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(results.added.map(r => r.row)), 'Solo en B');
+    }
+    if (results.removed && results.removed.length) {
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(results.removed.map(r => r.row)), 'Solo en A');
+    }
+    if (results.changed && results.changed.length) {
+      const rows = results.changed.flatMap(c => c.diffs.map(d => ({ Clave: c.key, Campo: d.col, 'Valor A': d.a, 'Valor B': d.b })));
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Cambios');
+    }
+    XLSX.writeFile(wb, 'comparacion_inventarios.xlsx');
+    toast('✅ Resultados exportados');
+  } catch(e) { toast('❌ Error al exportar'); }
+}
+
+// Fix for exportCompareExcel called from innerHTML
+window.exportCompareExcel = function(data) {
+  try {
+    const wb = XLSX.utils.book_new();
+    if (data && data.added && data.added.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.added.map(r=>r.row)), 'Solo en B');
+    if (data && data.removed && data.removed.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.removed.map(r=>r.row)), 'Solo en A');
+    if (data && data.changed && data.changed.length) {
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.changed.flatMap(c=>c.diffs.map(d=>({Clave:c.key,Campo:d.col,'Valor A':d.a,'Valor B':d.b})))), 'Cambios');
+    }
+    XLSX.writeFile(wb, 'comparacion_inventarios.xlsx');
+    toast('✅ Resultados exportados');
+  } catch(e) { toast('❌ Error al exportar'); }
+};
+
+function showStats() {
+  switchTab('excel');
+  updateStats();
+}
+
+// ========== INIT ==========
+loadState();
+renderTree();
+renderEquipos();
+updateStats();
+</script>
+</body>
+</html>
