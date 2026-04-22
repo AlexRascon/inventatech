@@ -526,11 +526,11 @@
     <div class="card" id="current-folder-card" style="display:none">
       <div class="card-title" id="current-folder-title">Carpeta seleccionada</div>
       <div id="current-folder-children"></div>
-      <div class="section-btn-row" style="margin-top:10px">
+      <div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <button class="btn btn-secondary btn-sm" onclick="openNewFolderModal(true)">📁 Sub-carpeta</button>
         <button class="btn btn-outline btn-sm" onclick="goToPhotos()">📷 Ir a Fotos</button>
         <button class="btn btn-secondary btn-sm" onclick="renameSelected()">✏️ Renombrar</button>
-        <button class="btn btn-secondary btn-sm" onclick="openMoveFolderModal()">🔀 Mover</button>
+        <button class="btn btn-secondary btn-sm" onclick="openMoveFolderModal()">🔀 Mover carpeta</button>
       </div>
     </div>
   </div>
@@ -1083,6 +1083,11 @@ function renderNode(folder) {
 function selectFolder(id) {
   state.selectedFolderId = id;
   renderTree();
+  // Scroll suave al panel de acciones
+  setTimeout(() => {
+    const card = document.getElementById('current-folder-card');
+    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, 100);
 }
 
 function deleteFolder(id) {
@@ -1367,36 +1372,64 @@ function confirmMoveEquipo() {
 // ========== EXPORT ZIP ==========
 async function exportPhotosZip() {
   if (state.photos.length === 0) { toast('⚠️ No hay fotos guardadas'); return; }
-  toast('⏳ Generando ZIP...', 5000);
+  toast('⏳ Leyendo fotos de almacenamiento...', 6000);
 
-  const zip = new JSZip();
-
-  for (const photo of state.photos) {
-    // Build folder path
-    const pathParts = photo.folderId ? getFolderPath(photo.folderId).map(f => f.name) : ['Sin_carpeta'];
-    const folderPath = pathParts.join('/');
-
-    // Convert dataUrl to binary
-    const base64 = photo.dataUrl.split(',')[1];
-    const ext = photo.dataUrl.includes('png') ? 'png' : 'jpg';
-    const fileName = (photo.name || ('foto_' + photo.id)).replace(/[^a-zA-Z0-9_.\-áéíóúÁÉÍÓÚñÑ]/g, '_');
-    const finalName = fileName.endsWith('.jpg') || fileName.endsWith('.jpeg') || fileName.endsWith('.png')
-      ? fileName : fileName + '.' + ext;
-
-    zip.folder(folderPath).file(finalName, base64, { base64: true });
+  // Siempre leer directo de IDB para garantizar que están todas completas
+  let idbPhotos = [];
+  try {
+    idbPhotos = await idbGetAll();
+  } catch(e) {
+    toast('❌ Error leyendo almacenamiento'); return;
   }
 
+  if (idbPhotos.length === 0) { toast('⚠️ No se encontraron fotos en el almacenamiento'); return; }
+
+  // Mapa de id -> metadata (folderId, name) desde state.photos
+  const metaMap = {};
+  state.photos.forEach(p => metaMap[p.id] = p);
+
+  const zip = new JSZip();
+  let count = 0;
+
+  for (const idbPhoto of idbPhotos) {
+    if (!idbPhoto.dataUrl) continue;
+
+    // Usar metadata del state si existe, si no usar la del IDB
+    const meta = metaMap[idbPhoto.id] || idbPhoto;
+    const folderId = meta.folderId || idbPhoto.folderId;
+    const pathParts = folderId ? getFolderPath(folderId).map(f =>
+      f.name.replace(/[/\\?%*:|"<>]/g, '_')
+    ) : ['Sin_carpeta'];
+    const folderPath = pathParts.join('/');
+
+    const base64 = idbPhoto.dataUrl.split(',')[1];
+    if (!base64) continue;
+
+    const ext = idbPhoto.dataUrl.includes('image/png') ? 'png' : 'jpg';
+    const rawName = meta.name || idbPhoto.name || ('foto_' + idbPhoto.id);
+    const safeName = rawName.replace(/[/\\?%*:|"<>]/g, '_');
+    const finalName = (safeName.endsWith('.jpg') || safeName.endsWith('.jpeg') || safeName.endsWith('.png'))
+      ? safeName : safeName + '.' + ext;
+
+    // Agregar número secuencial si hay duplicados en la misma carpeta
+    zip.folder(folderPath).file(count + '_' + finalName, base64, { base64: true });
+    count++;
+  }
+
+  if (count === 0) { toast('⚠️ No hay fotos válidas para exportar'); return; }
+
   try {
-    const blob = await zip.generateAsync({ type: 'blob' });
+    toast('⏳ Comprimiendo ' + count + ' fotos...', 8000);
+    const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 3 } });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = `inventatech_fotos_${new Date().toISOString().slice(0,10)}.zip`;
     a.click();
     URL.revokeObjectURL(url);
-    toast('✅ ZIP descargado con ' + state.photos.length + ' fotos');
+    toast('✅ ZIP listo: ' + count + ' fotos en ' + pathParts.length + ' carpetas');
   } catch(e) {
-    toast('❌ Error al generar ZIP');
+    toast('❌ Error al generar ZIP: ' + e.message);
   }
 }
 
