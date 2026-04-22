@@ -827,19 +827,6 @@
     </div>
   </div>
 </div>
-  <div class="modal">
-    <div class="modal-handle"></div>
-    <div class="modal-title">📁 Mover equipo a otra carpeta</div>
-    <div class="input-group">
-      <label class="input-label">Carpeta destino</label>
-      <select class="input" id="move-equipo-folder"></select>
-    </div>
-    <div class="section-btn-row" style="margin-top:16px">
-      <button class="btn btn-primary" onclick="confirmMoveEquipo()">Mover</button>
-      <button class="btn btn-secondary" onclick="closeModal('modal-move-equipo')">Cancelar</button>
-    </div>
-  </div>
-</div>
 
 <script>
 // ========== STATE ==========
@@ -857,67 +844,79 @@ let state = {
   excelB: null,
 };
 
-// ========== INDEXEDDB STORAGE ==========
-// Fotos se guardan en IndexedDB (persiste en iOS aunque se bloquee pantalla)
-// Carpetas/equipos/driveLinks se guardan en localStorage (son datos ligeros)
+// ========== STORAGE: localStorage con chunks para fotos grandes ==========
+// iOS Safari borra IDB en apps de GitHub Pages. localStorage es más confiable.
 
-const DB_NAME = 'inventatech_db';
-const DB_VERSION = 1;
-const STORE_PHOTOS = 'photos';
-const LS_KEY = 'inventatech_meta_v2';
-let db = null;
+const LS_KEY = 'inventatech_meta_v3';
+const LS_PHOTO_PREFIX = 'it_photo_';
 
-function openDB() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, DB_VERSION);
-    req.onupgradeneeded = (e) => {
-      const d = e.target.result;
-      if (!d.objectStoreNames.contains(STORE_PHOTOS)) {
-        d.createObjectStore(STORE_PHOTOS, { keyPath: 'id' });
-      }
-    };
-    req.onsuccess = (e) => { db = e.target.result; resolve(db); };
-    req.onerror = () => reject(req.error);
-  });
+function savePhotoToStorage(photo) {
+  try {
+    // Guardar foto individual con su propio key
+    localStorage.setItem(LS_PHOTO_PREFIX + photo.id, JSON.stringify({
+      id: photo.id,
+      folderId: photo.folderId,
+      name: photo.name,
+      timestamp: photo.timestamp,
+      dataUrl: photo.dataUrl,
+    }));
+    saveMeta();
+    return true;
+  } catch(e) {
+    // Si falla (storage lleno), intentar comprimir más
+    toast('⚠️ Almacenamiento casi lleno. Exporta el ZIP y libera espacio.');
+    return false;
+  }
 }
 
-function idbPut(photo) {
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_PHOTOS, 'readwrite');
-    tx.objectStore(STORE_PHOTOS).put(photo);
-    tx.oncomplete = resolve;
-    tx.onerror = () => reject(tx.error);
-  });
+async function savePhotoToIDB(photo) {
+  // Mantener compatibilidad — ahora usa localStorage
+  savePhotoToStorage(photo);
 }
 
-function idbDelete(id) {
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_PHOTOS, 'readwrite');
-    tx.objectStore(STORE_PHOTOS).delete(id);
-    tx.oncomplete = resolve;
-    tx.onerror = () => reject(tx.error);
-  });
+function deletePhotoFromStorage(id) {
+  localStorage.removeItem(LS_PHOTO_PREFIX + id);
+  saveMeta();
 }
 
-function idbGetAll() {
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_PHOTOS, 'readonly');
-    const req = tx.objectStore(STORE_PHOTOS).getAll();
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
+function getAllPhotosFromStorage() {
+  const photos = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith(LS_PHOTO_PREFIX)) {
+      try {
+        const p = JSON.parse(localStorage.getItem(key));
+        if (p && p.id && p.dataUrl) photos.push(p);
+      } catch(e) {}
+    }
+  }
+  return photos;
 }
 
-function idbClear() {
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_PHOTOS, 'readwrite');
-    tx.objectStore(STORE_PHOTOS).clear();
-    tx.oncomplete = resolve;
-    tx.onerror = () => reject(tx.error);
-  });
+// idbGetAll ahora lee de localStorage
+async function idbGetAll() {
+  return getAllPhotosFromStorage();
 }
 
-// Guardar metadata (sin fotos) en localStorage
+async function idbDelete(id) {
+  deletePhotoFromStorage(id);
+}
+
+async function idbClear() {
+  const keys = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith(LS_PHOTO_PREFIX)) keys.push(k);
+  }
+  keys.forEach(k => localStorage.removeItem(k));
+}
+
+async function idbPut(photo) {
+  savePhotoToStorage(photo);
+}
+
+async function openDB() { /* no-op, usando localStorage */ }
+
 function saveMeta() {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify({
@@ -929,22 +928,14 @@ function saveMeta() {
       })),
     }));
   } catch(e) {
-    toast('⚠️ Error guardando datos');
+    toast('⚠️ Error guardando metadata');
   }
 }
 
-// saveState ahora guarda foto en IDB + metadata en LS
-async function savePhotoToIDB(photo) {
-  await idbPut(photo);
-  saveMeta();
-}
-
-function saveState() {
-  saveMeta();
-}
+function saveState() { saveMeta(); }
 
 async function loadState() {
-  // 1. Cargar metadata de localStorage
+  // 1. Cargar metadata
   try {
     const saved = localStorage.getItem(LS_KEY);
     if (saved) {
@@ -952,26 +943,28 @@ async function loadState() {
       state.folders = parsed.folders || [];
       state.equipos = parsed.equipos || [];
       state.driveLinks = parsed.driveLinks || {};
-      // photoMeta sin dataUrl — se cargan desde IDB
-      state.photos = (parsed.photoMeta || []).map(m => ({ ...m, dataUrl: null }));
+      state.photos = (parsed.photoMeta || []);
     }
   } catch(e) {}
 
-  // 2. Cargar fotos reales desde IndexedDB
-  try {
-    const idbPhotos = await idbGetAll();
-    const idbMap = {};
-    idbPhotos.forEach(p => idbMap[p.id] = p.dataUrl);
-    state.photos = state.photos.map(p => ({
-      ...p,
-      dataUrl: idbMap[p.id] || null
-    }));
-    // Limpiar fotos sin dataUrl (IDB perdió datos)
-    state.photos = state.photos.filter(p => p.dataUrl);
-    saveMeta(); // sincronizar si hubo limpieza
-  } catch(e) {
-    console.warn('IDB load error:', e);
-  }
+  // 2. Cargar dataUrl de cada foto desde su propio key
+  const storagePhotos = getAllPhotosFromStorage();
+  const storageMap = {};
+  storagePhotos.forEach(p => storageMap[p.id] = p);
+
+  // Sincronizar: si hay fotos en storage que no están en meta, agregarlas
+  storagePhotos.forEach(p => {
+    if (!state.photos.find(m => m.id === p.id)) {
+      state.photos.push({ id: p.id, folderId: p.folderId, name: p.name, timestamp: p.timestamp });
+    }
+  });
+
+  // Agregar dataUrl al state
+  state.photos = state.photos
+    .map(p => ({ ...p, dataUrl: storageMap[p.id]?.dataUrl || null }))
+    .filter(p => p.dataUrl); // solo fotos que existen en storage
+
+  saveMeta();
 }
 
 // ========== TABS ==========
