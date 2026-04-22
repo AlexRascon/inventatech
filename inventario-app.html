@@ -839,7 +839,6 @@ let state = {
   photoTargetFolderId: null,
   addingSubfolder: false,
   viewingPhotoId: null,
-  movingEquipoId: null,
   excelA: null,
   excelB: null,
 };
@@ -1338,29 +1337,8 @@ function confirmMovePhoto() {
   state.viewingPhotoId = null;
 }
 
-function openMoveEquipoModal(id) {
-  state.movingEquipoId = id;
-  const opts = '<option value="">— Sin asignar —</option>' +
-    getAllFolderOptions().map(f => `<option value="${f.id}">${f.label}</option>`).join('');
-  document.getElementById('move-equipo-folder').innerHTML = opts;
-  const eq = state.equipos.find(e => e.id === id);
-  if (eq && eq.carpetaId) document.getElementById('move-equipo-folder').value = eq.carpetaId;
-  openModal('modal-move-equipo');
-}
+// Mover equipo: se hace editando directamente desde el modal de equipo (campo Carpeta)
 
-function confirmMoveEquipo() {
-  const newFolderId = document.getElementById('move-equipo-folder').value;
-  const eq = state.equipos.find(e => e.id === state.movingEquipoId);
-  if (eq) {
-    eq.carpetaId = newFolderId || null;
-    saveState();
-    renderEquipos();
-    renderTree();
-    toast('✅ Equipo movido correctamente');
-  }
-  closeModal('modal-move-equipo');
-  state.movingEquipoId = null;
-}
 
 // ========== EXPORT ZIP ==========
 async function exportPhotosZip() {
@@ -1538,7 +1516,6 @@ function renderEquipos() {
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
           <span class="equipo-estado ${estadoClass}">${eq.estado}</span>
-          <button class="btn-icon" style="width:28px;height:28px;font-size:13px" onclick="openMoveEquipoModal('${eq.id}')">📁</button>
           <button class="btn-icon" style="width:28px;height:28px;font-size:13px" onclick="openEquipoModal('${eq.id}')">✏️</button>
           <button class="btn-icon" style="width:28px;height:28px;font-size:13px" onclick="deleteEquipo('${eq.id}')">🗑️</button>
         </div>
