@@ -575,12 +575,18 @@
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <select class="input" id="filter-tipo" onchange="renderEquipos()" style="flex:1;min-width:120px">
           <option value="">Todos los tipos</option>
-          <option>PC</option><option>Laptop</option><option>Impresora</option>
-          <option>Scanner</option><option>Cámara</option><option>Monitor</option><option>Otro</option>
+          <option>CPU</option><option>LAPTOP</option><option>IMPRESORA</option>
+          <option>SCANNER</option><option>CAMARA</option><option>MONITOR</option>
+          <option>TELEFONO</option><option>REGULADOR</option><option>SWITCH</option>
+          <option>ROUTER</option><option>DVR</option><option>LECTOR</option>
+          <option>SUMADORA</option><option>PROYECTOR</option><option>AP</option>
+          <option>CONMUTADOR</option><option>CORTAFUEGOS</option><option>MODEM</option>
+          <option>CHECADOR</option><option>OTRO</option>
         </select>
-        <select class="input" id="filter-estado" onchange="renderEquipos()" style="flex:1;min-width:120px">
-          <option value="">Todos los estados</option>
-          <option>Bueno</option><option>Regular</option><option>Malo</option>
+        <select class="input" id="filter-validado" onchange="renderEquipos()" style="flex:1;min-width:120px">
+          <option value="">Todos</option>
+          <option value="si">✅ Validados</option>
+          <option value="no">⏳ Pendientes</option>
         </select>
       </div>
     </div>
@@ -737,34 +743,59 @@
     <div class="input-group">
       <label class="input-label">Tipo de equipo</label>
       <select class="input" id="eq-tipo">
-        <option>PC</option><option>Laptop</option><option>Impresora</option>
-        <option>Scanner</option><option>Cámara</option><option>Monitor</option><option>Otro</option>
+        <option>CPU</option><option>LAPTOP</option><option>IMPRESORA</option>
+        <option>SCANNER</option><option>CAMARA</option><option>MONITOR</option>
+        <option>TELEFONO</option><option>REGULADOR</option><option>SWITCH</option>
+        <option>ROUTER</option><option>DVR</option><option>LECTOR</option>
+        <option>SUMADORA</option><option>PROYECTOR</option><option>AP</option>
+        <option>CONMUTADOR</option><option>CORTAFUEGOS</option><option>MODEM</option>
+        <option>CHECADOR</option><option>OTRO</option>
       </select>
     </div>
     <div class="input-group">
-      <label class="input-label">Marca y Modelo</label>
-      <input class="input" id="eq-marca" placeholder="ej: HP EliteBook 840 G8" type="text">
+      <label class="input-label">Marca</label>
+      <input class="input" id="eq-marca" placeholder="ej: HP" type="text">
+    </div>
+    <div class="input-group">
+      <label class="input-label">Modelo</label>
+      <input class="input" id="eq-modelo" placeholder="ej: ProDesk 400 G6" type="text">
     </div>
     <div class="input-group">
       <label class="input-label">Número de serie</label>
-      <input class="input" id="eq-serie" placeholder="ej: 5CG1234567" type="text">
+      <input class="input" id="eq-serie" placeholder="ej: 8CC22907LK" type="text">
     </div>
     <div class="input-group">
-      <label class="input-label">Número de activo / inventario</label>
-      <input class="input" id="eq-activo" placeholder="ej: ACT-2024-001" type="text">
+      <label class="input-label">Número de control / activo</label>
+      <input class="input" id="eq-activo" placeholder="ej: 16662614" type="text">
     </div>
     <div class="input-group">
-      <label class="input-label">Asignado a (nombre / puesto)</label>
-      <input class="input" id="eq-persona" placeholder="ej: Juan Pérez – Contador" type="text">
+      <label class="input-label">Nombre usuario / asignado a</label>
+      <input class="input" id="eq-persona" placeholder="ej: DANA RAMIREZ" type="text">
     </div>
     <div class="input-group">
-      <label class="input-label">Estado</label>
-      <select class="input" id="eq-estado">
-        <option>Bueno</option><option>Regular</option><option>Malo</option>
-      </select>
+      <label class="input-label">Departamento</label>
+      <input class="input" id="eq-departamento" placeholder="ej: CONTABILIDAD" type="text">
     </div>
     <div class="input-group">
-      <label class="input-label">Carpeta (ubicación)</label>
+      <label class="input-label">Puesto</label>
+      <input class="input" id="eq-puesto" placeholder="ej: CONTADORA" type="text">
+    </div>
+    <div class="input-group">
+      <label class="input-label">Ubicación física</label>
+      <input class="input" id="eq-ubicacion" placeholder="ej: AREA DE CONTABILIDAD" type="text">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div class="input-group">
+        <label class="input-label">IP</label>
+        <input class="input" id="eq-ip" placeholder="ej: 242.77" type="text">
+      </div>
+      <div class="input-group">
+        <label class="input-label">VPN</label>
+        <input class="input" id="eq-vpn" placeholder="ej: 64" type="text">
+      </div>
+    </div>
+    <div class="input-group">
+      <label class="input-label">Carpeta (ubicación en app)</label>
       <select class="input" id="eq-carpeta">
         <option value="">— Sin asignar —</option>
       </select>
@@ -774,7 +805,7 @@
       <input class="input" id="eq-drive" placeholder="https://drive.google.com/..." type="url">
     </div>
     <div class="input-group">
-      <label class="input-label">Notas adicionales</label>
+      <label class="input-label">Notas</label>
       <input class="input" id="eq-notas" placeholder="Observaciones..." type="text">
     </div>
 
@@ -1058,18 +1089,29 @@ function renderTree() {
 function renderNode(folder) {
   const children = state.folders.filter(f => f.parentId === folder.id);
   const photoCount = state.photos.filter(p => p.folderId === folder.id).length;
-  const equipCount = state.equipos.filter(e => e.carpetaId === folder.id).length;
+  const folderEquipos = state.equipos.filter(e => e.carpetaId === folder.id);
+  const validCount = folderEquipos.filter(e => e.validado).length;
+  const totalCount = folderEquipos.length;
 
   const wrap = document.createElement('div');
   wrap.className = 'tree-node';
 
   const item = document.createElement('div');
   item.className = 'tree-item' + (state.selectedFolderId === folder.id ? ' selected' : '');
+
+  let validBadge = '';
+  if (totalCount > 0) {
+    const allValid = validCount === totalCount;
+    validBadge = `<span style="font-size:10px;padding:2px 6px;border-radius:10px;font-weight:600;background:${allValid ? 'rgba(46,213,115,0.15)' : 'rgba(255,165,2,0.15)'};color:${allValid ? 'var(--success)' : 'var(--warning)'}">
+      ${allValid ? '✅' : `${validCount}/${totalCount}`}
+    </span>`;
+  }
+
   item.innerHTML = `
     <span class="tree-item-icon">${folder.icon}</span>
     <span class="tree-item-name">${folder.name}</span>
     ${photoCount > 0 ? `<span class="chip">📷 ${photoCount}</span>` : ''}
-    ${equipCount > 0 ? `<span class="chip">🖥️ ${equipCount}</span>` : ''}
+    ${validBadge}
     ${children.length > 0 ? `<span class="tree-item-count">${children.length}</span>` : ''}
   `;
   item.onclick = () => selectFolder(folder.id);
@@ -1393,17 +1435,18 @@ async function scanLabelWithAI(input) {
               },
               {
                 type: 'text',
-                text: `Analiza esta imagen de una etiqueta de equipo de cómputo. Extrae TODOS los datos que veas que puedan ser: marca, modelo, número de serie, número de parte, número de activo, código de barras, o cualquier identificador.
+                text: `Analiza esta imagen de una etiqueta de equipo de cómputo. Extrae todos los datos visibles.
 
-Responde SOLO con JSON válido, sin texto adicional, sin markdown:
+Responde SOLO con JSON válido, sin texto adicional ni markdown:
 {
-  "marca_modelo": "valor o null",
-  "serie": "valor o null", 
-  "activo": "valor o null",
-  "otros": ["dato1", "dato2"]
+  "marca": "solo la marca ej: HP, DELL, LENOVO o null",
+  "modelo": "solo el modelo ej: ProDesk 400 G6 o null",
+  "serie": "número de serie o null",
+  "activo": "número de control o activo o null",
+  "otros": ["cualquier otro código o dato visible"]
 }
 
-Si ves múltiples valores posibles para un campo, pon el más probable. En "otros" pon cualquier código, número o dato adicional que veas. Si no puedes leer algún campo, pon null.`
+Si no puedes leer algún campo pon null. En otros incluye todo lo demás que veas.`
               }
             ]
           }]
@@ -1465,13 +1508,14 @@ function renderScanResults(parsed) {
   // Selectores manuales por campo
   const assign = document.getElementById('scan-assign');
   const campos = [
-    { id: 'eq-marca', label: 'Marca/Modelo' },
-    { id: 'eq-serie', label: 'Número de serie' },
-    { id: 'eq-activo', label: 'Número de activo' },
+    { id: 'eq-marca', label: 'Marca' },
+    { id: 'eq-modelo', label: 'Modelo' },
+    { id: 'eq-serie', label: 'Serie' },
+    { id: 'eq-activo', label: '# Control' },
   ];
   assign.innerHTML = campos.map(campo => `
     <div style="display:flex;align-items:center;gap:8px">
-      <span style="font-size:11px;color:var(--text2);width:90px;flex-shrink:0">${campo.label}</span>
+      <span style="font-size:11px;color:var(--text2);width:70px;flex-shrink:0">${campo.label}</span>
       <select class="input" style="flex:1;font-size:12px;padding:6px 8px" onchange="assignToField('${campo.id}', this.value)">
         <option value="">— elegir —</option>
         ${scannedData.map((d, i) => `<option value="${i}">${d.valor}</option>`).join('')}
@@ -1480,7 +1524,8 @@ function renderScanResults(parsed) {
   `).join('');
 
   // Auto-asignar sugerencias de la IA
-  if (parsed.marca_modelo) document.getElementById('eq-marca').value = parsed.marca_modelo;
+  if (parsed.marca) document.getElementById('eq-marca').value = parsed.marca;
+  if (parsed.modelo) document.getElementById('eq-modelo').value = parsed.modelo;
   if (parsed.serie) document.getElementById('eq-serie').value = parsed.serie;
   if (parsed.activo) document.getElementById('eq-activo').value = parsed.activo;
 
@@ -1594,16 +1639,20 @@ function populateFolderSelects() {
 function openEquipoModal(id = null) {
   populateFolderSelects();
   document.getElementById('equipo-edit-id').value = '';
-  document.getElementById('eq-tipo').value = 'PC';
+  document.getElementById('eq-tipo').value = 'CPU';
   document.getElementById('eq-marca').value = '';
+  document.getElementById('eq-modelo').value = '';
   document.getElementById('eq-serie').value = '';
   document.getElementById('eq-activo').value = '';
   document.getElementById('eq-persona').value = '';
-  document.getElementById('eq-estado').value = 'Bueno';
+  document.getElementById('eq-departamento').value = '';
+  document.getElementById('eq-puesto').value = '';
+  document.getElementById('eq-ubicacion').value = '';
+  document.getElementById('eq-ip').value = '';
+  document.getElementById('eq-vpn').value = '';
   document.getElementById('eq-carpeta').value = state.selectedFolderId || '';
   document.getElementById('eq-drive').value = '';
   document.getElementById('eq-notas').value = '';
-  // Reset scan panel
   document.getElementById('scan-status').style.display = 'none';
   document.getElementById('scan-results').style.display = 'none';
   scannedData = [];
@@ -1612,12 +1661,17 @@ function openEquipoModal(id = null) {
     const eq = state.equipos.find(e => e.id === id);
     if (eq) {
       document.getElementById('equipo-edit-id').value = eq.id;
-      document.getElementById('eq-tipo').value = eq.tipo;
-      document.getElementById('eq-marca').value = eq.marca;
-      document.getElementById('eq-serie').value = eq.serie;
-      document.getElementById('eq-activo').value = eq.activo;
-      document.getElementById('eq-persona').value = eq.persona;
-      document.getElementById('eq-estado').value = eq.estado;
+      document.getElementById('eq-tipo').value = eq.tipo || 'CPU';
+      document.getElementById('eq-marca').value = eq.marca || '';
+      document.getElementById('eq-modelo').value = eq.modelo || '';
+      document.getElementById('eq-serie').value = eq.serie || '';
+      document.getElementById('eq-activo').value = eq.activo || '';
+      document.getElementById('eq-persona').value = eq.persona || '';
+      document.getElementById('eq-departamento').value = eq.departamento || '';
+      document.getElementById('eq-puesto').value = eq.puesto || '';
+      document.getElementById('eq-ubicacion').value = eq.ubicacion || '';
+      document.getElementById('eq-ip').value = eq.ip || '';
+      document.getElementById('eq-vpn').value = eq.vpn || '';
       document.getElementById('eq-carpeta').value = eq.carpetaId || '';
       document.getElementById('eq-drive').value = eq.driveLink || '';
       document.getElementById('eq-notas').value = eq.notas || '';
@@ -1628,21 +1682,29 @@ function openEquipoModal(id = null) {
 
 function saveEquipo() {
   const editId = document.getElementById('equipo-edit-id').value;
+  const existing = editId ? state.equipos.find(e => e.id === editId) : null;
   const eq = {
     id: editId || generateId(),
     tipo: document.getElementById('eq-tipo').value,
     marca: document.getElementById('eq-marca').value.trim(),
+    modelo: document.getElementById('eq-modelo').value.trim(),
     serie: document.getElementById('eq-serie').value.trim(),
     activo: document.getElementById('eq-activo').value.trim(),
     persona: document.getElementById('eq-persona').value.trim(),
-    estado: document.getElementById('eq-estado').value,
+    departamento: document.getElementById('eq-departamento').value.trim(),
+    puesto: document.getElementById('eq-puesto').value.trim(),
+    ubicacion: document.getElementById('eq-ubicacion').value.trim(),
+    ip: document.getElementById('eq-ip').value.trim(),
+    vpn: document.getElementById('eq-vpn').value.trim(),
     carpetaId: document.getElementById('eq-carpeta').value || null,
     driveLink: document.getElementById('eq-drive').value.trim(),
     notas: document.getElementById('eq-notas').value.trim(),
-    fecha: new Date().toLocaleDateString('es-MX'),
+    validado: existing ? existing.validado : false,
+    fechaValidacion: existing ? existing.fechaValidacion : '',
+    fecha: existing ? existing.fecha : new Date().toLocaleDateString('es-MX'),
   };
 
-  if (!eq.marca && !eq.serie) { toast('⚠️ Ingresa al menos marca o serie'); return; }
+  if (!eq.marca && !eq.serie && !eq.modelo) { toast('⚠️ Ingresa al menos marca, modelo o serie'); return; }
 
   if (editId) {
     const idx = state.equipos.findIndex(e => e.id === editId);
@@ -1657,39 +1719,50 @@ function saveEquipo() {
   toast('✅ Equipo guardado');
 }
 
-const TIPO_ICONS = { PC:'🖥️', Laptop:'💻', Impresora:'🖨️', Scanner:'🗂️', Cámara:'📷', Monitor:'🖵', Otro:'📦' };
+const TIPO_ICONS = {
+  CPU:'🖥️', LAPTOP:'💻', IMPRESORA:'🖨️', SCANNER:'🗂️', CAMARA:'📷',
+  MONITOR:'🖵', TELEFONO:'📞', REGULADOR:'🔋', SWITCH:'🔀', ROUTER:'📡',
+  DVR:'📹', LECTOR:'📠', SUMADORA:'🧮', PROYECTOR:'📽️', AP:'📶',
+  CONMUTADOR:'☎️', CORTAFUEGOS:'🛡️', MODEM:'📟', CHECADOR:'⏱️', OTRO:'📦'
+};
 
 function renderEquipos() {
   const list = document.getElementById('equipos-list');
   const filterTipo = document.getElementById('filter-tipo').value;
-  const filterEstado = document.getElementById('filter-estado').value;
+  const filterValidado = document.getElementById('filter-validado').value;
 
   let equipos = state.equipos;
   if (filterTipo) equipos = equipos.filter(e => e.tipo === filterTipo);
-  if (filterEstado) equipos = equipos.filter(e => e.estado === filterEstado);
+  if (filterValidado === 'si') equipos = equipos.filter(e => e.validado);
+  if (filterValidado === 'no') equipos = equipos.filter(e => !e.validado);
 
   if (equipos.length === 0) {
-    list.innerHTML = '<div class="empty-state"><div class="empty-icon">🖥️</div><p>No hay equipos registrados.<br>Toca "Registrar equipo" para comenzar.</p></div>';
+    list.innerHTML = '<div class="empty-state"><div class="empty-icon">🖥️</div><p>No hay equipos registrados.</p></div>';
     return;
   }
 
   list.innerHTML = equipos.map(eq => {
     const icon = TIPO_ICONS[eq.tipo] || '📦';
-    const estadoClass = eq.estado === 'Bueno' ? 'estado-bueno' : eq.estado === 'Regular' ? 'estado-regular' : 'estado-malo';
     const folder = eq.carpetaId ? state.folders.find(f => f.id === eq.carpetaId) : null;
+    const validBadge = eq.validado
+      ? `<span style="font-size:10px;padding:2px 7px;border-radius:20px;background:rgba(46,213,115,0.15);color:var(--success);font-weight:600">✅ Validado</span>`
+      : `<span style="font-size:10px;padding:2px 7px;border-radius:20px;background:rgba(255,165,2,0.15);color:var(--warning);font-weight:600">⏳ Pendiente</span>`;
     return `
       <div class="equipo-item">
         <div class="equipo-thumb">${icon}</div>
         <div class="equipo-info">
           <div class="equipo-tipo">${eq.tipo}</div>
-          <div class="equipo-nombre">${eq.marca || 'Sin marca'}</div>
-          <div class="equipo-sub">Serie: ${eq.serie || '—'} · Activo: ${eq.activo || '—'}</div>
-          <div class="equipo-sub" style="margin-top:2px">👤 ${eq.persona || 'Sin asignar'}</div>
+          <div class="equipo-nombre">${eq.marca || ''} ${eq.modelo || ''}</div>
+          <div class="equipo-sub">Serie: ${eq.serie || '—'} · Control: ${eq.activo || '—'}</div>
+          <div class="equipo-sub">👤 ${eq.persona || '—'} ${eq.departamento ? '· ' + eq.departamento : ''}</div>
+          ${eq.ip ? `<div class="equipo-sub">🌐 IP: ${eq.ip}${eq.vpn ? ' · VPN: ' + eq.vpn : ''}</div>` : ''}
           ${folder ? `<div class="equipo-sub">📁 ${folder.name}</div>` : ''}
-          ${eq.driveLink ? `<a href="${eq.driveLink}" target="_blank" style="font-size:11px;color:var(--accent2)">🔗 Ver foto Drive</a>` : ''}
+          ${eq.driveLink ? `<a href="${eq.driveLink}" target="_blank" style="font-size:11px;color:var(--accent2)">🔗 Ver foto</a>` : ''}
+          ${eq.notas ? `<div class="equipo-sub" style="color:var(--warning)">📝 ${eq.notas}</div>` : ''}
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
-          <span class="equipo-estado ${estadoClass}">${eq.estado}</span>
+          ${validBadge}
+          <button class="btn-icon" style="width:28px;height:28px;font-size:13px" onclick="toggleValidado('${eq.id}')" title="Marcar validado">✅</button>
           <button class="btn-icon" style="width:28px;height:28px;font-size:13px" onclick="openEquipoModal('${eq.id}')">✏️</button>
           <button class="btn-icon" style="width:28px;height:28px;font-size:13px" onclick="deleteEquipo('${eq.id}')">🗑️</button>
         </div>
@@ -1698,11 +1771,15 @@ function renderEquipos() {
   }).join('');
 }
 
-function deleteEquipo(id) {
-  state.equipos = state.equipos.filter(e => e.id !== id);
+function toggleValidado(id) {
+  const eq = state.equipos.find(e => e.id === id);
+  if (!eq) return;
+  eq.validado = !eq.validado;
+  eq.fechaValidacion = eq.validado ? new Date().toLocaleDateString('es-MX') : '';
   saveState();
   renderEquipos();
-  toast('🗑️ Equipo eliminado');
+  renderTree();
+  toast(eq.validado ? '✅ Equipo marcado como validado' : '⏳ Marcado como pendiente');
 }
 
 // ========== STATS ==========
@@ -1767,31 +1844,40 @@ function exportExcel() {
     const path = folder ? getFolderPath(folder.id).map(f => f.name).join(' › ') : '';
     const driveLink = eq.driveLink || (eq.carpetaId && state.driveLinks[eq.carpetaId]) || '';
     return {
-      'Tipo': eq.tipo,
-      'Marca/Modelo': eq.marca,
-      'Serie': eq.serie,
-      'Activo': eq.activo,
-      'Asignado a': eq.persona,
-      'Estado': eq.estado,
-      'Ubicación': path,
-      'Link foto Drive': driveLink,
-      'Notas': eq.notas || '',
-      'Fecha registro': eq.fecha || '',
+      'TIPO': eq.tipo,
+      'MARCA': eq.marca,
+      'MODELO': eq.modelo || '',
+      '# CONTROL': eq.activo,
+      'SERIE': eq.serie,
+      'IP': eq.ip || '',
+      'VPN': eq.vpn || '',
+      'CARPETA': path,
+      'NOMBRE USUARIO': eq.persona,
+      'DEPARTAMENTO': eq.departamento || '',
+      'PUESTO': eq.puesto || '',
+      'UBICACION': eq.ubicacion || '',
+      'LINK FOTO DRIVE': driveLink,
+      'VALIDADO': eq.validado ? 'SI' : 'NO',
+      'FECHA VALIDACION': eq.fechaValidacion || '',
+      'NOTAS': eq.notas || '',
     };
   });
 
   const ws = XLSX.utils.json_to_sheet(rows);
-  // Column widths
-  ws['!cols'] = [12,25,18,15,25,10,35,45,25,15].map(w => ({ wch: w }));
+  ws['!cols'] = [12,12,20,18,18,10,8,35,20,18,18,25,45,10,15,30].map(w => ({ wch: w }));
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Inventario');
 
-  // Summary sheet
+  // Resumen por tipo
   const tipos = {};
   state.equipos.forEach(e => tipos[e.tipo] = (tipos[e.tipo] || 0) + 1);
+  const validados = state.equipos.filter(e => e.validado).length;
   const summary = [
     { 'Resumen': 'Total equipos', 'Cantidad': state.equipos.length },
+    { 'Resumen': 'Validados', 'Cantidad': validados },
+    { 'Resumen': 'Pendientes', 'Cantidad': state.equipos.length - validados },
+    { 'Resumen': '---', 'Cantidad': '' },
     ...Object.entries(tipos).map(([t, c]) => ({ 'Resumen': t, 'Cantidad': c })),
     { 'Resumen': 'Total fotos', 'Cantidad': state.photos.length },
     { 'Resumen': 'Carpetas', 'Cantidad': state.folders.length },
@@ -1800,7 +1886,7 @@ function exportExcel() {
   XLSX.utils.book_append_sheet(wb, ws2, 'Resumen');
 
   const date = new Date().toISOString().slice(0,10);
-  XLSX.writeFile(wb, `inventario_${date}.xlsx`);
+  XLSX.writeFile(wb, `inventario_boulevard_${date}.xlsx`);
   toast('✅ Excel descargado');
 }
 
