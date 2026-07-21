@@ -215,6 +215,7 @@
   }
   .tree-item:active { background: var(--surface3); }
   .tree-item.selected { border-color: var(--accent); background: rgba(0,229,160,0.06); }
+  .tree-item.drop-target { border-color: var(--accent); background: rgba(0,229,160,0.15); outline: 2px dashed var(--accent); outline-offset: 2px; }
   .tree-item-icon { font-size: 18px; flex-shrink: 0; }
   .tree-item-name { flex: 1; font-size: 14px; font-weight: 500; }
   .tree-item-count {
@@ -560,6 +561,24 @@
         <div class="card-title">Fotos en carpeta seleccionada</div>
         <div id="photo-grid" class="photo-grid"></div>
       </div>
+
+      <div class="divider"></div>
+      <div class="card-title">📂 Importar carpeta desde Drive/PC</div>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:8px">
+        Selecciona la carpeta raíz sincronizada de Drive (la que contiene las subcarpetas con los mismos nombres que en la app). La app busca coincidencias por nombre de carpeta y asigna las fotos automáticamente, comprimidas a una calidad legible (para leer números de serie). Como pesan más, caben menos por ciclo — usa "Exportar ZIP y liberar espacio" y repite cuando se llene. Solo funciona en navegador de escritorio (no en la app instalada en iPhone).
+      </p>
+      <button class="btn btn-secondary" onclick="document.getElementById('bulkImportInput').click()">📂 Importar carpeta completa</button>
+      <input type="file" id="bulkImportInput" webkitdirectory directory multiple accept="image/*" onchange="handleBulkImport(this)" style="display:none">
+      <div style="margin-top:8px">
+        <button class="btn btn-danger" onclick="exportAndClearPhotos()">⬇️🗑️ Exportar ZIP y liberar espacio</button>
+      </div>
+      <div style="margin-top:8px">
+        <button class="btn btn-outline" onclick="clearAllPhotosNoExport()">🗑️ Borrar todas las fotos (sin exportar)</button>
+      </div>
+      <div style="margin-top:8px">
+        <button class="btn btn-outline" onclick="resetImportedLog()">🔄 Reiniciar registro de fotos ya importadas</button>
+      </div>
+      <div id="bulk-import-status" style="font-size:12px;color:var(--text2);margin-top:10px;white-space:pre-line"></div>
     </div>
   </div>
 
@@ -615,6 +634,9 @@
       <button class="btn btn-primary" onclick="exportExcel()">⬇️ Descargar Excel</button>
       <div style="margin-top:8px">
         <button class="btn btn-secondary" onclick="exportPhotosZip()">🖼️ Exportar fotos (ZIP con carpetas)</button>
+      </div>
+      <div style="margin-top:8px">
+        <button class="btn btn-danger" onclick="exportAndClearPhotos()">⬇️🗑️ Exportar ZIP y liberar espacio</button>
       </div>
       <div style="margin-top:8px">
         <button class="btn btn-secondary" onclick="exportJSON()">💾 Guardar respaldo JSON</button>
@@ -922,7 +944,7 @@ function savePhotoToStorage(photo) {
 
 async function savePhotoToIDB(photo) {
   // Mantener compatibilidad — ahora usa localStorage
-  savePhotoToStorage(photo);
+  return savePhotoToStorage(photo);
 }
 
 function deletePhotoFromStorage(id) {
@@ -1115,6 +1137,7 @@ function renderNode(folder) {
     ${children.length > 0 ? `<span class="tree-item-count">${children.length}</span>` : ''}
   `;
   item.onclick = () => selectFolder(folder.id);
+  setupFolderDropZone(item, folder.id, folder.name);
 
   const delBtn = document.createElement('button');
   delBtn.className = 'btn-icon';
@@ -1371,6 +1394,379 @@ function processPhotoFile(file) {
   reader.readAsDataURL(file);
 }
 
+// ========== REGISTRO PERSISTENTE DE FOTOS YA IMPORTADAS ==========
+// Sobrevive a los ciclos de "exportar y liberar espacio" para no reimportar lo mismo una y otra vez.
+const IMPORTED_LOG_KEY = 'it_imported_log_v1';
+
+function loadImportedLog() {
+  try {
+    const raw = localStorage.getItem(IMPORTED_LOG_KEY);
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  } catch (e) {
+    return new Set();
+  }
+}
+
+function saveImportedLog(set) {
+  try {
+    localStorage.setItem(IMPORTED_LOG_KEY, JSON.stringify(Array.from(set)));
+  } catch (e) {
+    // Si esto falla por espacio no es crítico, seguimos sin romper la importación
+  }
+}
+
+function resetImportedLog() {
+  const proceed = confirm(
+    `Esto borra el registro de "fotos ya importadas". La próxima vez que corras una importación, ` +
+    `TODAS las fotos se van a volver a intentar de cero (incluyendo las que ya exportaste antes), ` +
+    `lo que puede generar duplicados si ya las tienes en un ZIP.\n\n¿Confirmas que quieres reiniciar el registro?`
+  );
+  if (!proceed) return;
+  localStorage.removeItem(IMPORTED_LOG_KEY);
+  toast('🔄 Registro de importación reiniciado');
+  const statusEl = document.getElementById('bulk-import-status');
+  if (statusEl) statusEl.textContent = 'Registro reiniciado — la próxima importación revisará todas las fotos de nuevo.';
+}
+
+// ========== IMPORTACIÓN MASIVA DESDE CARPETA (Drive/PC) ==========
+function handleBulkImport(input) {
+  const allFiles = Array.from(input.files || []);
+  const files = allFiles.filter(f => f.type.startsWith('image/'));
+  input.value = '';
+  if (!files.length) {
+    toast('⚠️ No se encontraron imágenes en esa carpeta');
+    return;
+  }
+  runBulkImport(files);
+}
+
+async function runBulkImport(files) {
+  const statusEl = document.getElementById('bulk-import-status');
+  const importedLog = loadImportedLog();
+
+  // Mapa de rutas completas de carpetas (nombre/nombre/nombre en minúsculas) -> folderId
+  const folderPathMap = new Map();
+  // Mapa de nombre de carpeta (hoja) -> [folderIds] para fallback cuando el nombre es único
+  const leafNameMap = new Map();
+  state.folders.forEach(f => {
+    const path = getFolderPath(f.id).map(p => p.name.trim().toLowerCase());
+    folderPathMap.set(path.join('/'), f.id);
+    const leaf = f.name.trim().toLowerCase();
+    if (!leafNameMap.has(leaf)) leafNameMap.set(leaf, []);
+    leafNameMap.get(leaf).push(f.id);
+  });
+
+  let matched = 0, imported = 0, unmatched = 0, failed = 0, pendingSpace = 0, alreadyDone = 0;
+  const unmatchedNames = new Set();
+  let quotaHit = false;
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    statusEl.textContent = `Importando ${i + 1}/${files.length}…\nYa importadas antes: ${alreadyDone} · Coincidencias: ${matched} · Importadas ahora: ${imported} · Sin carpeta: ${unmatched} · Sin espacio: ${pendingSpace}`;
+
+    const rel = file.webkitRelativePath || '';
+    const logKey = rel.toLowerCase();
+
+    if (logKey && importedLog.has(logKey)) {
+      alreadyDone++;
+      continue; // ya se importó y exportó en un ciclo anterior, no repetir
+    }
+
+    const parts = rel.split('/').slice(0, -1); // partes de la ruta, sin el nombre del archivo
+    let folderId = null;
+
+    if (parts.length) {
+      for (let start = 0; start < parts.length && !folderId; start++) {
+        const candidate = parts.slice(start).map(p => p.trim().toLowerCase()).join('/');
+        if (folderPathMap.has(candidate)) folderId = folderPathMap.get(candidate);
+      }
+      if (!folderId) {
+        const leaf = parts[parts.length - 1].trim().toLowerCase();
+        const candidates = leafNameMap.get(leaf);
+        if (candidates && candidates.length === 1) folderId = candidates[0];
+      }
+    }
+
+    if (!folderId) {
+      unmatched++;
+      unmatchedNames.add(parts.length ? parts[parts.length - 1] : '(sin carpeta)');
+      continue;
+    }
+
+    matched++;
+
+    if (quotaHit) { pendingSpace++; continue; } // ya se sabe que no hay espacio, no reintentar guardar
+
+    try {
+      const ok = await importSinglePhoto(file, folderId);
+      if (ok) {
+        imported++;
+        if (logKey) {
+          importedLog.add(logKey);
+          saveImportedLog(importedLog);
+        }
+      } else {
+        quotaHit = true;
+        pendingSpace++;
+      }
+    } catch (e) {
+      failed++;
+    }
+  }
+
+  renderPhotoGrid();
+  renderTree();
+
+  let summary = `✅ Importación terminada.\nImportadas ahora: ${imported} de ${files.length} fotos revisadas.`;
+  if (alreadyDone > 0) {
+    summary += `\n↩️ ${alreadyDone} ya se habían importado en un ciclo anterior — se omitieron para no duplicar.`;
+  }
+  if (unmatched > 0) {
+    const sample = Array.from(unmatchedNames).slice(0, 8).join(', ');
+    summary += `\n⚠️ ${unmatched} sin carpeta coincidente (revisa que el nombre sea idéntico): ${sample}${unmatchedNames.size > 8 ? '…' : ''}`;
+  }
+  if (pendingSpace > 0) {
+    summary += `\n🚫 ${pendingSpace} fotos ya encontraron su carpeta pero no cupieron: se llenó el almacenamiento. Usa el botón "Exportar ZIP y liberar espacio" (así se respaldan las ${imported} ya guardadas y se borran del dispositivo), y después vuelve a correr esta misma importación para seguir con las que faltan.`;
+  }
+  if (failed > 0) {
+    summary += `\n⚠️ ${failed} fotos fallaron por otro error al guardarse.`;
+  }
+  statusEl.textContent = summary;
+}
+
+function importSinglePhoto(file, folderId) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      // Calidad media-alta para que se lean números de serie y etiquetas — menos fotos caben por ciclo
+      compressImage(e.target.result, async (compressed) => {
+        const photo = {
+          id: generateId(),
+          folderId,
+          dataUrl: compressed,
+          name: file.name || 'foto_' + Date.now(),
+          timestamp: new Date().toISOString(),
+        };
+        try {
+          const ok = await savePhotoToIDB(photo);
+          if (ok) state.photos.push(photo);
+          resolve(ok);
+        } catch (err) {
+          reject(err);
+        }
+      }, 0.78, 1400);
+    };
+    reader.onerror = () => reject(new Error('read error'));
+    reader.readAsDataURL(file);
+  });
+}
+
+// ========== DRAG & DROP DE FOTOS DIRECTO A CARPETAS ==========
+function setupFolderDropZone(item, folderId, folderName) {
+  item.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    item.classList.add('drop-target');
+  });
+  item.addEventListener('dragleave', () => {
+    item.classList.remove('drop-target');
+  });
+  item.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    item.classList.remove('drop-target');
+
+    const handledAsFolder = await handleEntryDrop(e, folderId, folderName);
+    if (handledAsFolder) return;
+
+    const files = Array.from(e.dataTransfer.files || []).filter(f => f.type.startsWith('image/'));
+    if (!files.length) { toast('⚠️ Arrastra archivos de imagen (jpg, png) o una carpeta'); return; }
+    await importFilesToFolder(files, folderId, folderName);
+  });
+}
+
+// Lee recursivamente una carpeta soltada (drag & drop de carpeta completa desde el Explorador/Finder)
+function readEntryRecursive(entry, relPath) {
+  return new Promise((resolve) => {
+    if (entry.isFile) {
+      entry.file(
+        (file) => resolve([{ file, relPath: relPath + entry.name }]),
+        () => resolve([])
+      );
+    } else if (entry.isDirectory) {
+      const dirReader = entry.createReader();
+      let collected = [];
+      const readBatch = () => {
+        dirReader.readEntries(async (batch) => {
+          if (!batch.length) {
+            const results = await Promise.all(
+              collected.map(child => readEntryRecursive(child, relPath + entry.name + '/'))
+            );
+            resolve(results.flat());
+          } else {
+            collected = collected.concat(batch);
+            readBatch(); // readEntries no garantiza devolver todo en una sola llamada
+          }
+        }, () => resolve([]));
+      };
+      readBatch();
+    } else {
+      resolve([]);
+    }
+  });
+}
+
+// Si lo que se soltó incluye al menos una carpeta, la procesa completa (recursivo) y regresa true.
+// Si no hay carpetas (solo archivos sueltos), regresa false para que el caller use el flujo simple.
+async function handleEntryDrop(e, targetFolderId, targetFolderName) {
+  const items = e.dataTransfer.items;
+  if (!items || !items.length) return false;
+
+  const entries = [];
+  let hasDirectory = false;
+  for (let i = 0; i < items.length; i++) {
+    const entry = items[i].webkitGetAsEntry && items[i].webkitGetAsEntry();
+    if (entry) {
+      entries.push(entry);
+      if (entry.isDirectory) hasDirectory = true;
+    }
+  }
+  if (!hasDirectory) return false;
+
+  toast(`⏳ Leyendo carpeta "${entries[0].name}"...`, 5000);
+  const nested = await Promise.all(entries.map(en => readEntryRecursive(en, '')));
+  const flatEntries = nested.flat().filter(x => x.file.type.startsWith('image/'));
+
+  await importEntriesToFolderSubtree(flatEntries, targetFolderId, targetFolderName);
+  return true;
+}
+
+// Reparte fotos de una carpeta arrastrada completa entre la carpeta destino y sus subcarpetas,
+// haciendo match por nombre (igual que el importador de escritorio, pero acotado a este subárbol).
+async function importEntriesToFolderSubtree(entries, rootFolderId, rootFolderName) {
+  const statusEl = document.getElementById('bulk-import-status');
+
+  if (!entries.length) {
+    toast('⚠️ No se encontraron imágenes en esa carpeta');
+    return;
+  }
+
+  const pathMap = new Map(); // "subcarpeta/subcarpeta2" (minúsculas) -> folderId
+  const leafMap = new Map(); // "subcarpeta2" (minúsculas) -> [folderIds]
+  pathMap.set('', rootFolderId); // la raíz misma (fotos sueltas directo en la carpeta arrastrada)
+
+  (function walk(parentId, prefix) {
+    state.folders.filter(f => f.parentId === parentId).forEach(c => {
+      const key = (prefix ? prefix + '/' : '') + c.name.trim().toLowerCase();
+      pathMap.set(key, c.id);
+      const leaf = c.name.trim().toLowerCase();
+      if (!leafMap.has(leaf)) leafMap.set(leaf, []);
+      leafMap.get(leaf).push(c.id);
+      walk(c.id, key);
+    });
+  })(rootFolderId, '');
+
+  let matched = 0, imported = 0, unmatched = 0, failed = 0, pendingSpace = 0, alreadyDone = 0, quotaHit = false;
+  const unmatchedNames = new Set();
+  const importedLog = loadImportedLog();
+
+  for (let i = 0; i < entries.length; i++) {
+    const { file, relPath } = entries[i];
+    if (statusEl) statusEl.textContent =
+      `Importando ${i + 1}/${entries.length} de "${rootFolderName}"…\nYa importadas antes: ${alreadyDone} · Coincidencias: ${matched} · Importadas ahora: ${imported} · Sin carpeta: ${unmatched} · Sin espacio: ${pendingSpace}`;
+
+    const logKey = relPath.toLowerCase();
+    if (logKey && importedLog.has(logKey)) {
+      alreadyDone++;
+      continue; // ya se importó y exportó en un ciclo anterior
+    }
+
+    // relPath ej: "BOULEVARD/ADMINISTRADOR/foto1.jpg" — quitamos el 1er segmento (carpeta raíz arrastrada) y el archivo
+    const parts = relPath.split('/').slice(1, -1);
+    const candidate = parts.map(p => p.trim().toLowerCase()).join('/');
+
+    let folderId = pathMap.has(candidate) ? pathMap.get(candidate) : null;
+    if (!folderId && parts.length) {
+      const leaf = parts[parts.length - 1].trim().toLowerCase();
+      const cands = leafMap.get(leaf);
+      if (cands && cands.length === 1) folderId = cands[0];
+    }
+
+    if (!folderId) {
+      unmatched++;
+      unmatchedNames.add(parts.length ? parts[parts.length - 1] : rootFolderName);
+      continue;
+    }
+
+    matched++;
+
+    if (quotaHit) { pendingSpace++; continue; }
+
+    try {
+      const ok = await importSinglePhoto(file, folderId);
+      if (ok) {
+        imported++;
+        if (logKey) {
+          importedLog.add(logKey);
+          saveImportedLog(importedLog);
+        }
+      } else {
+        quotaHit = true;
+        pendingSpace++;
+      }
+    } catch (e) {
+      failed++;
+    }
+  }
+
+  renderPhotoGrid();
+  renderTree();
+
+  let summary = `✅ "${rootFolderName}": ${imported} de ${entries.length} fotos revisadas importadas ahora.`;
+  if (alreadyDone > 0) {
+    summary += `\n↩️ ${alreadyDone} ya se habían importado en un ciclo anterior — se omitieron para no duplicar.`;
+  }
+  if (unmatched > 0) {
+    const sample = Array.from(unmatchedNames).slice(0, 8).join(', ');
+    summary += `\n⚠️ ${unmatched} sin subcarpeta coincidente (revisa que el nombre sea idéntico): ${sample}${unmatchedNames.size > 8 ? '…' : ''}`;
+  }
+  if (pendingSpace > 0) {
+    summary += `\n🚫 ${pendingSpace} fotos ya encontraron su carpeta pero no cupieron: se llenó el almacenamiento. Usa "Exportar ZIP y liberar espacio" y luego repite este mismo arrastre para seguir con las que faltan.`;
+  }
+  if (failed > 0) {
+    summary += `\n⚠️ ${failed} fotos fallaron por otro error al guardarse.`;
+  }
+  if (statusEl) statusEl.textContent = summary;
+  toast(summary.split('\n')[0], 5000);
+}
+
+async function importFilesToFolder(files, folderId, folderName) {
+  toast(`⏳ Importando ${files.length} foto(s) a "${folderName}"...`, 5000);
+
+  let imported = 0, failed = 0, quotaHit = false;
+
+  for (const file of files) {
+    if (quotaHit) { failed++; continue; }
+    try {
+      const ok = await importSinglePhoto(file, folderId);
+      if (ok) imported++; else { quotaHit = true; failed++; }
+    } catch (e) {
+      failed++;
+    }
+  }
+
+  renderPhotoGrid();
+  renderTree();
+
+  let msg = `✅ ${imported} foto(s) agregadas a "${folderName}"`;
+  if (quotaHit) {
+    msg += `. 🚫 Se llenó el almacenamiento — exporta el ZIP y libera espacio para seguir.`;
+  } else if (failed > 0) {
+    msg += ` (${failed} fallaron)`;
+  }
+  toast(msg, 5000);
+}
+
 function compressImage(dataUrl, callback, quality = 0.65, maxW = 1200) {
   const img = new Image();
   img.onload = () => {
@@ -1599,19 +1995,10 @@ function assignToField(fieldId, idx) {
 }
 
 // ========== EXPORT ZIP ==========
-async function exportPhotosZip() {
-  if (state.photos.length === 0) { toast('⚠️ No hay fotos guardadas'); return; }
-  toast('⏳ Leyendo fotos de almacenamiento...', 6000);
-
+async function generatePhotosZipBlob() {
   // Siempre leer directo de IDB para garantizar que están todas completas
-  let idbPhotos = [];
-  try {
-    idbPhotos = await idbGetAll();
-  } catch(e) {
-    toast('❌ Error leyendo almacenamiento'); return;
-  }
-
-  if (idbPhotos.length === 0) { toast('⚠️ No se encontraron fotos en el almacenamiento'); return; }
+  const idbPhotos = await idbGetAll();
+  if (idbPhotos.length === 0) return null;
 
   // Mapa de id -> metadata (folderId, name) desde state.photos
   const metaMap = {};
@@ -1619,6 +2006,7 @@ async function exportPhotosZip() {
 
   const zip = new JSZip();
   let count = 0;
+  const foldersUsed = new Set();
 
   for (const idbPhoto of idbPhotos) {
     if (!idbPhoto.dataUrl) continue;
@@ -1630,6 +2018,7 @@ async function exportPhotosZip() {
       f.name.replace(/[/\\?%*:|"<>]/g, '_')
     ) : ['Sin_carpeta'];
     const folderPath = pathParts.join('/');
+    foldersUsed.add(folderPath);
 
     const base64 = idbPhoto.dataUrl.split(',')[1];
     if (!base64) continue;
@@ -1645,21 +2034,130 @@ async function exportPhotosZip() {
     count++;
   }
 
-  if (count === 0) { toast('⚠️ No hay fotos válidas para exportar'); return; }
+  if (count === 0) return null;
 
+  const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 3 } });
+  return { blob, count, folderCount: foldersUsed.size };
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function zipFilename() {
+  // Fecha y hora en el nombre para no confundir ciclos del mismo día (ej. 2026-07-21_16-45-30)
+  const d = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  return `inventatech_fotos_${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}-${pad(d.getMinutes())}-${pad(d.getSeconds())}.zip`;
+}
+
+async function exportPhotosZip() {
+  if (state.photos.length === 0) { toast('⚠️ No hay fotos guardadas'); return; }
+  toast('⏳ Leyendo fotos de almacenamiento...', 6000);
+
+  let result;
   try {
-    toast('⏳ Comprimiendo ' + count + ' fotos...', 8000);
-    const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 3 } });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `inventatech_fotos_${new Date().toISOString().slice(0,10)}.zip`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast('✅ ZIP listo: ' + count + ' fotos en ' + pathParts.length + ' carpetas');
+    toast('⏳ Comprimiendo fotos...', 8000);
+    result = await generatePhotosZipBlob();
   } catch(e) {
     toast('❌ Error al generar ZIP: ' + e.message);
+    return;
   }
+
+  if (!result) { toast('⚠️ No se encontraron fotos válidas para exportar'); return; }
+
+  downloadBlob(result.blob, zipFilename());
+  toast('✅ ZIP listo: ' + result.count + ' fotos en ' + result.folderCount + ' carpetas');
+}
+
+async function exportAndClearPhotos() {
+  if (state.photos.length === 0) { toast('⚠️ No hay fotos guardadas'); return; }
+
+  const statusEl = document.getElementById('bulk-import-status');
+  if (statusEl) statusEl.textContent = '⏳ Generando ZIP de respaldo antes de borrar...';
+  toast('⏳ Leyendo fotos de almacenamiento...', 6000);
+
+  let result;
+  try {
+    result = await generatePhotosZipBlob();
+  } catch(e) {
+    toast('❌ Error al generar ZIP: ' + e.message);
+    if (statusEl) statusEl.textContent = '';
+    return;
+  }
+
+  if (!result) {
+    toast('⚠️ No se encontraron fotos válidas para exportar');
+    if (statusEl) statusEl.textContent = '';
+    return;
+  }
+
+  const filename = zipFilename();
+  downloadBlob(result.blob, filename);
+
+  const totalBefore = state.photos.length;
+  const proceed = confirm(
+    `Se descargó "${filename}" con ${result.count} fotos.\n\n` +
+    `Verifica que el archivo se guardó bien en tu computadora antes de continuar.\n\n` +
+    `Si aceptas, se BORRARÁN las ${totalBefore} fotos guardadas en este dispositivo para liberar espacio. ` +
+    `Las carpetas, equipos y validaciones NO se tocan, solo las fotos.\n\n` +
+    `¿Confirmas que ya guardaste el ZIP y quieres borrar las fotos del dispositivo?`
+  );
+
+  if (!proceed) {
+    toast('Cancelado. Las fotos siguen guardadas en el dispositivo.');
+    if (statusEl) statusEl.textContent = '';
+    return;
+  }
+
+  state.photos = [];
+  try {
+    await idbClear();
+  } catch(e) {}
+  saveMeta();
+  renderPhotoGrid();
+  renderTree();
+
+  const msg = `✅ ZIP exportado (${result.count} fotos) y ${totalBefore} fotos borradas del dispositivo. Espacio liberado.`;
+  toast(msg, 4000);
+  if (statusEl) statusEl.textContent = msg;
+}
+
+async function clearAllPhotosNoExport() {
+  if (state.photos.length === 0) { toast('⚠️ No hay fotos guardadas'); return; }
+
+  const statusEl = document.getElementById('bulk-import-status');
+  const totalBefore = state.photos.length;
+
+  const proceed = confirm(
+    `Vas a BORRAR las ${totalBefore} fotos guardadas en este dispositivo SIN exportarlas primero — no se genera ningún ZIP de respaldo.\n\n` +
+    `Esto también reinicia el registro de "fotos ya importadas", así que la próxima importación las va a volver a intentar.\n\n` +
+    `Las carpetas, equipos y validaciones NO se tocan, solo las fotos.\n\n` +
+    `¿Confirmas que quieres borrarlas sin respaldo?`
+  );
+
+  if (!proceed) {
+    toast('Cancelado. Las fotos siguen guardadas en el dispositivo.');
+    return;
+  }
+
+  state.photos = [];
+  try {
+    await idbClear();
+  } catch(e) {}
+  localStorage.removeItem(IMPORTED_LOG_KEY);
+  saveMeta();
+  renderPhotoGrid();
+  renderTree();
+
+  const msg = `🗑️ ${totalBefore} fotos borradas sin respaldo. Espacio liberado.`;
+  toast(msg, 4000);
+  if (statusEl) statusEl.textContent = msg;
 }
 
 async function deletePhoto(id) {
@@ -2176,6 +2674,10 @@ async function init() {
   renderTree();
   renderEquipos();
   updateStats();
+
+  // Evitar que el navegador abra/navegue a la imagen si se suelta fuera de una carpeta
+  window.addEventListener('dragover', (e) => e.preventDefault());
+  window.addEventListener('drop', (e) => e.preventDefault());
 }
 
 init();
