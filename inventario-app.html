@@ -1239,13 +1239,56 @@ function updateCurrentFolderCard() {
   card.style.display = 'block';
   const folder = state.folders.find(f => f.id === state.selectedFolderId);
   document.getElementById('current-folder-title').textContent = folder.icon + ' ' + folder.name;
+
+  // Subcarpetas
   const children = state.folders.filter(f => f.parentId === state.selectedFolderId);
   const cont = document.getElementById('current-folder-children');
-  if (children.length === 0) {
-    cont.innerHTML = '<p style="font-size:12px;color:var(--text2)">Sin subcarpetas. Agrega fotos o equipos aquí.</p>';
-  } else {
-    cont.innerHTML = children.map(c => `<div class="chip" style="margin:3px">${c.icon} ${c.name}</div>`).join('');
+
+  let html = '';
+
+  // Subcarpetas
+  if (children.length > 0) {
+    html += `<div style="font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Subcarpetas</div>`;
+    html += `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">`;
+    html += children.map(c => `<div class="chip">${c.icon} ${c.name}</div>`).join('');
+    html += `</div>`;
   }
+
+  // Equipos en esta carpeta
+  const equipos = state.equipos.filter(e => e.carpetaId === state.selectedFolderId);
+  if (equipos.length > 0) {
+    const validados = equipos.filter(e => e.validado).length;
+    html += `<div style="font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">
+      Equipos (${validados}/${equipos.length} validados)
+    </div>`;
+    html += equipos.map(eq => {
+      const icon = TIPO_ICONS[eq.tipo] || '📦';
+      const validBadge = eq.validado
+        ? `<span style="font-size:10px;color:var(--success)">✅</span>`
+        : `<span style="font-size:10px;color:var(--warning)">⏳</span>`;
+      return `
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:6px">
+          <span style="font-size:18px;flex-shrink:0">${icon}</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${eq.marca || ''} ${eq.modelo || ''}</div>
+            <div style="font-size:11px;color:var(--text2)">Serie: ${eq.serie || '—'} · Control: ${eq.activo || '—'}</div>
+            ${eq.persona ? `<div style="font-size:11px;color:var(--text2)">👤 ${eq.persona}</div>` : ''}
+            ${eq.ip ? `<div style="font-size:11px;color:var(--text2)">🌐 ${eq.ip}${eq.vpn ? ' · VPN: '+eq.vpn : ''}</div>` : ''}
+            ${eq.notas ? `<div style="font-size:11px;color:var(--warning)">📝 ${eq.notas}</div>` : ''}
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
+            ${validBadge}
+            <button class="btn-icon" style="width:26px;height:26px;font-size:12px" onclick="toggleValidado('${eq.id}')" title="Validar">✅</button>
+            <button class="btn-icon" style="width:26px;height:26px;font-size:12px" onclick="openEquipoModal('${eq.id}')">✏️</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } else if (children.length === 0) {
+    html += `<p style="font-size:12px;color:var(--text2)">Sin equipos ni subcarpetas. Agrega fotos o registra equipos aquí.</p>`;
+  }
+
+  cont.innerHTML = html;
 }
 
 function goToPhotos() {
