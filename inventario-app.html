@@ -653,6 +653,19 @@
     </div>
 
     <div class="card">
+      <div class="card-title">📲 Pasar fotos a otro dispositivo (por tandas)</div>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:8px">
+        Genera un archivo con las fotos que tienes ahora mismo en este dispositivo (ej. este ciclo en la compu) para llevarlas a otro (ej. el iPhone). A diferencia de "Importar respaldo", esto <b>suma</b> fotos nuevas sin borrar las que ya tengas ahí — puedes repetirlo varias veces por cada tanda.
+      </p>
+      <button class="btn btn-secondary" onclick="exportPhotosBatchForDevice()">📤 Exportar tanda para transferir</button>
+      <div class="upload-zone" style="margin-top:8px" onclick="document.getElementById('photoBatchInput').click()">
+        <div class="upload-icon">📥</div>
+        <p>Toca para importar una tanda recibida de otro dispositivo</p>
+      </div>
+      <input type="file" id="photoBatchInput" accept=".json" onchange="importPhotosBatchForDevice(this)">
+    </div>
+
+    <div class="card">
       <div class="card-title">Links de Drive</div>
       <p style="font-size:13px;color:var(--text2);margin-bottom:12px">Pega aquí los links de Google Drive para asociarlos con las carpetas</p>
       <div id="drive-links-list"></div>
@@ -2431,54 +2444,7 @@ function exportExcel() {
   toast('✅ Excel descargado');
 }
 
-// ========== EXPORT/IMPORT JSON ==========
-function exportJSON() {
-  const data = {
-    exportDate: new Date().toISOString(),
-    folders: state.folders,
-    photos: state.photos,
-    equipos: state.equipos,
-    driveLinks: state.driveLinks,
-  };
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `inventatech_backup_${new Date().toISOString().slice(0,10)}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-  toast('💾 Respaldo guardado');
-}
-
-function exportAllData() {
-  exportJSON();
-}
-
-function importJSON(input) {
-  const file = input.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    try {
-      const data = JSON.parse(e.target.result);
-      if (data.folders) state.folders = data.folders;
-      if (data.photos) state.photos = data.photos;
-      if (data.equipos) state.equipos = data.equipos;
-      if (data.driveLinks) state.driveLinks = data.driveLinks;
-      saveState();
-      renderTree();
-      renderEquipos();
-      updateStats();
-      toast('✅ Datos importados correctamente');
-    } catch(err) {
-      toast('❌ Archivo inválido');
-    }
-  };
-  reader.readAsText(file);
-  input.value = '';
-}
-
-// ========== EXPORT/IMPORT JSON ==========
+// ========== EXPORT/IMPORT JSON (respaldo completo — reemplaza todo al importar) ==========
 async function exportJSON() {
   toast('⏳ Preparando respaldo...', 4000);
   const idbPhotos = await idbGetAll();
@@ -2534,6 +2500,105 @@ async function importJSON(input) {
   };
   reader.readAsText(file);
   input.value = '';
+}
+
+// ========== TRANSFERIR FOTOS ENTRE DISPOSITIVOS (compu → celular, por tandas, SUMA en vez de reemplazar) ==========
+// Pensado para pasar cada tanda de fotos ya importadas en la compu al iPhone, sin manual carpeta por carpeta.
+async function exportPhotosBatchForDevice() {
+  if (state.photos.length === 0) { toast('⚠️ No hay fotos guardadas en este dispositivo para pasar'); return; }
+  toast('⏳ Preparando tanda para transferir...', 4000);
+
+  const idbPhotos = await idbGetAll();
+  const idbMap = {};
+  idbPhotos.forEach(p => idbMap[p.id] = p.dataUrl);
+  const photosWithData = state.photos.map(p => ({ ...p, dataUrl: idbMap[p.id] || p.dataUrl || null })).filter(p => p.dataUrl);
+
+  const data = {
+    transferDate: new Date().toISOString(),
+    type: 'inventatech_photo_batch',
+    folders: state.folders, // por si en el otro dispositivo faltara alguna carpeta nueva
+    equipos: state.equipos, // idem, por si hay equipos nuevos que a\u00fan no est\u00e1n del otro lado
+    photos: photosWithData,
+  };
+  const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const d = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  a.download = `inventatech_tanda_${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}-${pad(d.getMinutes())}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('📤 Tanda lista para transferir: ' + photosWithData.length + ' fotos');
+}
+
+async function importPhotosBatchForDevice(input) {
+  const file = input.files[0];
+  if (!file) return;
+  input.value = '';
+  toast('⏳ Leyendo tanda...', 4000);
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    let data;
+    try {
+      data = JSON.parse(e.target.result);
+    } catch (err) {
+      toast('❌ Archivo inválido');
+      return;
+    }
+
+    // Sumar carpetas/equipos que no existan aquí todavía (por id), sin borrar los que ya hay
+    if (Array.isArray(data.folders)) {
+      const existingFolderIds = new Set(state.folders.map(f => f.id));
+      data.folders.forEach(f => { if (!existingFolderIds.has(f.id)) state.folders.push(f); });
+    }
+    if (Array.isArray(data.equipos)) {
+      const existingEquipoIds = new Set(state.equipos.map(eq => eq.id));
+      data.equipos.forEach(eq => { if (!existingEquipoIds.has(eq.id)) state.equipos.push(eq); });
+    }
+
+    const photos = Array.isArray(data.photos) ? data.photos : [];
+    if (!photos.length) { toast('⚠️ Esa tanda no traía fotos'); return; }
+
+    const existingPhotoIds = new Set(state.photos.map(p => p.id));
+    let added = 0, skippedDup = 0, pendingSpace = 0;
+    let quotaHit = false;
+    const statusEl = document.getElementById('bulk-import-status');
+
+    for (let i = 0; i < photos.length; i++) {
+      const p = photos[i];
+      if (statusEl) statusEl.textContent = `Importando tanda ${i + 1}/${photos.length}…\nAgregadas: ${added} · Ya exist\u00edan: ${skippedDup} · Sin espacio: ${pendingSpace}`;
+
+      if (!p.dataUrl) continue;
+      if (existingPhotoIds.has(p.id)) { skippedDup++; continue; }
+
+      if (quotaHit) { pendingSpace++; continue; }
+
+      const ok = await savePhotoToIDB(p);
+      if (ok) {
+        state.photos.push(p);
+        existingPhotoIds.add(p.id);
+        added++;
+      } else {
+        quotaHit = true;
+        pendingSpace++;
+      }
+    }
+
+    saveMeta();
+    renderTree();
+    renderEquipos();
+    renderPhotoGrid();
+    updateStats();
+
+    let msg = `✅ Tanda importada: ${added} fotos nuevas agregadas.`;
+    if (skippedDup > 0) msg += `\n↩️ ${skippedDup} ya estaban en este dispositivo.`;
+    if (pendingSpace > 0) msg += `\n🚫 ${pendingSpace} no cupieron por espacio — libera espacio aquí y vuelve a importar esta misma tanda.`;
+    toast(msg.split('\n')[0], 5000);
+    if (statusEl) statusEl.textContent = msg;
+  };
+  reader.readAsText(file);
 }
 
 // ========== COMPARE EXCELS ==========
